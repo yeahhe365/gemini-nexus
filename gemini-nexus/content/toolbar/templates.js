@@ -36,6 +36,7 @@
             
             <!-- Quick Actions Toolbar (Dark Theme) -->
             <div class="toolbar" id="toolbar">
+                <div class="toolbar-drag-handle" id="toolbar-drag-handle" title="Drag to move">${ICONS.DRAG_HANDLE}</div>
                 <button class="btn" id="btn-ask" title="${t.askAi}">${ICONS.LOGO}</button>
                 <button class="btn" id="btn-copy" title="${t.copy}">${ICONS.COPY}</button>
                 <button class="btn hidden" id="btn-grammar" title="${t.fixGrammar}">${ICONS.GRAMMAR}</button>

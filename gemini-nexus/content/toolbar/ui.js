@@ -23,6 +23,8 @@
             this.shadow = null;
             this.view = null;
             this.dragController = null;
+            this.toolbarDragState = null; // State for toolbar dragging
+            this.toolbarHasBeenDragged = false; // Track if toolbar was dragged by user
             this.events = null;
             this.callbacks = {};
             this.isBuilt = false;
@@ -63,10 +65,13 @@
             );
 
             this.events = new Events(this);
-            
+
             // Bind Events
             this.events.bind(this.view.elements, this.view.elements.askWindow);
-            
+
+            // Init Toolbar Drag
+            this._initToolbarDrag();
+
             this.isBuilt = true;
         }
 
@@ -124,11 +129,85 @@
             link.rel = 'stylesheet';
             link.href = 'https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css';
             this.shadow.appendChild(link);
-            
+
             const hljsLink = document.createElement('link');
             hljsLink.rel = 'stylesheet';
             hljsLink.href = 'https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/atom-one-dark.min.css';
             this.shadow.appendChild(hljsLink);
+        }
+
+        _initToolbarDrag() {
+            const toolbar = this.view.elements.toolbar;
+            const handle = this.view.elements.toolbarDragHandle;
+            if (!toolbar || !handle) return;
+
+            this.toolbarDragState = {
+                isDragging: false,
+                offsetX: 0,
+                offsetY: 0
+            };
+
+            const onDragMove = (e) => {
+                if (!this.toolbarDragState.isDragging) return;
+                e.preventDefault();
+
+                let clientX, clientY;
+                if (e.type === 'touchmove') {
+                    clientX = e.touches[0].clientX;
+                    clientY = e.touches[0].clientY;
+                } else {
+                    clientX = e.clientX;
+                    clientY = e.clientY;
+                }
+
+                const scrollX = window.scrollX || window.pageXOffset;
+                const scrollY = window.scrollY || window.pageYOffset;
+
+                const newLeft = clientX - this.toolbarDragState.offsetX + scrollX;
+                const newTop = clientY - this.toolbarDragState.offsetY + scrollY;
+
+                toolbar.style.left = `${newLeft}px`;
+                toolbar.style.top = `${newTop}px`;
+            };
+
+            const onDragEnd = () => {
+                if (!this.toolbarDragState.isDragging) return;
+                this.toolbarDragState.isDragging = false;
+                this.toolbarHasBeenDragged = true; // Mark as dragged to prevent repositioning
+                toolbar.classList.remove('dragging');
+
+                document.removeEventListener('mousemove', onDragMove);
+                document.removeEventListener('mouseup', onDragEnd);
+                document.removeEventListener('touchmove', onDragMove);
+                document.removeEventListener('touchend', onDragEnd);
+            };
+
+            const startDrag = (clientX, clientY) => {
+                this.toolbarDragState.isDragging = true;
+                const rect = toolbar.getBoundingClientRect();
+
+                this.toolbarDragState.offsetX = clientX - rect.left;
+                this.toolbarDragState.offsetY = clientY - rect.top;
+
+                toolbar.classList.add('dragging');
+
+                document.addEventListener('mousemove', onDragMove);
+                document.addEventListener('mouseup', onDragEnd);
+                document.addEventListener('touchmove', onDragMove, { passive: false });
+                document.addEventListener('touchend', onDragEnd);
+            };
+
+            handle.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                startDrag(e.clientX, e.clientY);
+            });
+
+            handle.addEventListener('touchstart', (e) => {
+                e.stopPropagation();
+                const touch = e.touches[0];
+                startDrag(touch.clientX, touch.clientY);
+            }, { passive: true });
         }
 
         // --- Event Handlers (Called by ToolbarEvents) ---
@@ -212,11 +291,21 @@
         // --- Public API ---
 
         show(rect, mousePoint) {
+            // Skip repositioning if toolbar was dragged by user
+            if (this.toolbarHasBeenDragged) {
+                // Just ensure it's visible, don't reposition
+                if (this.view.elements.toolbar) {
+                    this.view.elements.toolbar.classList.add('visible');
+                }
+                return;
+            }
             this.view.showToolbar(rect, mousePoint);
         }
 
         hide() {
             this.view.hideToolbar();
+            // Reset dragged state when hiding
+            this.toolbarHasBeenDragged = false;
         }
 
         showImageButton(rect) {

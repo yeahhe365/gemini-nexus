@@ -28,6 +28,7 @@
             const get = (id) => this.shadow.getElementById(id);
             this.elements = {
                 toolbar: get('toolbar'),
+                toolbarDragHandle: get('toolbar-drag-handle'),
                 imageBtn: get('image-btn'),
                 
                 // New Window Elements

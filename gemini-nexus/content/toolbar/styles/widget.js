@@ -14,7 +14,7 @@
             border-radius: 8px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.25), 0 0 0 1px rgba(255,255,255,0.1);
             opacity: 0;
-            transform: translateY(10px) translateX(-50%);
+            transform: translateY(10px);
             transition: opacity 0.2s cubic-bezier(0.2, 0.8, 0.2, 1), transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
             pointer-events: none;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -23,7 +23,7 @@
         .toolbar.visible {
             opacity: 1;
             pointer-events: auto;
-            transform: translateY(0) translateX(-50%);
+            transform: translateY(0);
         }
         .btn {
             display: flex;
@@ -49,6 +49,35 @@
         }
         .btn.hidden {
             display: none;
+        }
+
+        /* Toolbar Drag Handle */
+        .toolbar-drag-handle {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 16px;
+            height: 32px;
+            color: #666;
+            cursor: grab;
+            transition: color 0.15s;
+            flex-shrink: 0;
+            margin-right: 2px;
+        }
+        .toolbar-drag-handle:hover {
+            color: #999;
+        }
+        .toolbar-drag-handle:active {
+            cursor: grabbing;
+            color: #fff;
+        }
+        .toolbar.dragging {
+            cursor: grabbing;
+            user-select: none;
+        }
+        .toolbar.dragging .toolbar-drag-handle {
+            cursor: grabbing;
+            color: #fff;
         }
 
         /* Image Hover Button */
