@@ -20,6 +20,11 @@ export class SettingsView {
             themeSelect: get('theme-select'),
             languageSelect: get('language-select'),
             
+            useOfficialApiToggle: get('use-official-api-toggle'),
+            apiKeyInput: get('api-key-input'),
+            apiKeyContainer: get('api-key-container'),
+            thinkingLevelSelect: get('thinking-level-select'),
+            
             textSelectionToggle: get('text-selection-toggle'),
             imageToolsToggle: get('image-tools-toggle'),
             accountIndicesInput: get('account-indices-input'),
@@ -41,7 +46,7 @@ export class SettingsView {
     bindEvents() {
         const { modal, btnClose, btnSave, btnReset, themeSelect, languageSelect, 
                 inputQuickAsk, inputOpenPanel, textSelectionToggle, imageToolsToggle, 
-                accountIndicesInput, sidebarRadios, btnDownloadLogs } = this.elements;
+                accountIndicesInput, sidebarRadios, btnDownloadLogs, useOfficialApiToggle, apiKeyContainer } = this.elements;
 
         // Modal actions
         if (btnClose) btnClose.addEventListener('click', () => this.close());
@@ -68,6 +73,12 @@ export class SettingsView {
         }
         
         // Toggles
+        if (useOfficialApiToggle) {
+            useOfficialApiToggle.addEventListener('change', (e) => {
+                if (apiKeyContainer) apiKeyContainer.style.display = e.target.checked ? 'flex' : 'none';
+            });
+        }
+
         if (textSelectionToggle) {
             textSelectionToggle.addEventListener('change', (e) => this.fire('onTextSelectionChange', e.target.value));
         }
@@ -102,12 +113,17 @@ export class SettingsView {
     }
 
     handleSave() {
-        const { inputQuickAsk, inputOpenPanel, textSelectionToggle, imageToolsToggle, accountIndicesInput } = this.elements;
+        const { inputQuickAsk, inputOpenPanel, textSelectionToggle, imageToolsToggle, accountIndicesInput, useOfficialApiToggle, apiKeyInput, thinkingLevelSelect } = this.elements;
         
         const data = {
             shortcuts: {
                 quickAsk: inputQuickAsk ? inputQuickAsk.value : null,
                 openPanel: inputOpenPanel ? inputOpenPanel.value : null,
+            },
+            connection: {
+                useOfficialApi: useOfficialApiToggle ? useOfficialApiToggle.checked : false,
+                apiKey: apiKeyInput ? apiKeyInput.value.trim() : "",
+                thinkingLevel: thinkingLevelSelect ? thinkingLevelSelect.value : "high"
             },
             textSelection: textSelectionToggle ? textSelectionToggle.checked : true,
             imageTools: imageToolsToggle ? imageToolsToggle.checked : true,
@@ -174,6 +190,21 @@ export class SettingsView {
     setToggles(textSelection, imageTools) {
         if (this.elements.textSelectionToggle) this.elements.textSelectionToggle.checked = textSelection;
         if (this.elements.imageToolsToggle) this.elements.imageToolsToggle.checked = imageTools;
+    }
+    
+    setConnectionSettings(useOfficialApi, apiKey, thinkingLevel) {
+        if (this.elements.useOfficialApiToggle) {
+            this.elements.useOfficialApiToggle.checked = useOfficialApi;
+            if (this.elements.apiKeyContainer) {
+                this.elements.apiKeyContainer.style.display = useOfficialApi ? 'flex' : 'none';
+            }
+        }
+        if (this.elements.apiKeyInput) {
+            this.elements.apiKeyInput.value = apiKey || "";
+        }
+        if (this.elements.thinkingLevelSelect) {
+            this.elements.thinkingLevelSelect.value = thinkingLevel || "high";
+        }
     }
 
     setSidebarBehavior(behavior) {

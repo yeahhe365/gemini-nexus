@@ -40,7 +40,8 @@ export async function saveToHistory(text, result, filesObj = null) {
                     role: 'ai',
                     text: result.text,
                     thoughts: result.thoughts, // Save thoughts if present
-                    generatedImages: result.images // Save generated images
+                    generatedImages: result.images, // Save generated images
+                    thoughtSignature: result.thoughtSignature // Save context signature for Gemini 3
                 }
             ],
             context: result.context
@@ -80,7 +81,8 @@ export async function appendAiMessage(sessionId, result) {
                 role: 'ai',
                 text: result.text,
                 thoughts: result.thoughts,
-                generatedImages: result.images
+                generatedImages: result.images,
+                thoughtSignature: result.thoughtSignature // Save context signature for Gemini 3
             });
             session.context = result.context; // Update context
             session.timestamp = Date.now();

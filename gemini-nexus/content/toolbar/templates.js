@@ -58,9 +58,9 @@
                 <span class="window-title" id="window-title">${t.windowTitle}</span>
                 <div class="header-actions">
                     <select id="ask-model-select" class="ask-model-select">
-                        <option value="gemini-2.5-flash">Fast</option>
-                        <option value="gemini-2.5-pro">Thinking</option>
-                        <option value="gemini-3.0-pro">3 Pro</option>
+                        <option value="gemini-3-flash">Fast</option>
+                        <option value="gemini-3-flash-thinking">Thinking</option>
+                        <option value="gemini-3-pro">3 Pro</option>
                     </select>
                     <button class="icon-btn" id="btn-header-close" title="${t.close}">${ICONS.CLOSE}</button>
                 </div>

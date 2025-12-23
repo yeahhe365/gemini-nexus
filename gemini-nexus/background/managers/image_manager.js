@@ -46,9 +46,10 @@ export class ImageManager {
     }
 
     // Internal helper for capturing visible tab
-    _captureTab() {
+    _captureTab(windowId) {
         return new Promise((resolve) => {
-            chrome.tabs.captureVisibleTab(null, { format: 'png' }, (dataUrl) => {
+            // Use explicit windowId if provided to ensure correct window is captured
+            chrome.tabs.captureVisibleTab(windowId, { format: 'png' }, (dataUrl) => {
                 if (chrome.runtime.lastError || !dataUrl) {
                     console.error("Capture failed:", chrome.runtime.lastError);
                     resolve(null);
@@ -60,8 +61,8 @@ export class ImageManager {
     }
 
     // Capture the visible tab and return base64
-    async captureScreenshot() {
-        const dataUrl = await this._captureTab();
+    async captureScreenshot(windowId) {
+        const dataUrl = await this._captureTab(windowId);
         
         if (!dataUrl) {
             return {
@@ -79,8 +80,8 @@ export class ImageManager {
     }
 
     // Used when content script selects an area
-    async captureArea(area) {
-        const dataUrl = await this._captureTab();
+    async captureArea(area, windowId) {
+        const dataUrl = await this._captureTab(windowId);
         
         if (!dataUrl) {
             return null;

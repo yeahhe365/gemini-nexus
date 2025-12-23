@@ -20,9 +20,21 @@ export function parseToolCommand(responseText) {
     return null;
 }
 
-export async function getActiveTabContent() {
+export async function getActiveTabContent(specificTabId = null) {
     try {
-        const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+        let tab;
+        if (specificTabId) {
+            try {
+                tab = await chrome.tabs.get(specificTabId);
+            } catch (e) {
+                // Specific tab not found
+                return null;
+            }
+        } else {
+            const tabs = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+            tab = tabs[0];
+        }
+
         if (!tab || !tab.id) return null;
 
         // Check for restricted URLs

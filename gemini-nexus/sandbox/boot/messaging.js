@@ -61,7 +61,16 @@ export class AppMessageBridge {
         }
         if (action === 'RESTORE_MODEL') {
             if (this.ui.modelSelect) {
+                const prev = this.ui.modelSelect.value;
                 this.ui.modelSelect.value = payload;
+                // Safety check: if invalid model, fallback
+                if (this.ui.modelSelect.selectedIndex === -1) {
+                    this.ui.modelSelect.value = prev || (this.ui.modelSelect.options.length > 0 ? this.ui.modelSelect.options[0].value : "");
+                    // Force index 0 if still invalid
+                    if (this.ui.modelSelect.selectedIndex === -1 && this.ui.modelSelect.options.length > 0) {
+                        this.ui.modelSelect.selectedIndex = 0;
+                    }
+                }
                 if (this.resizeFn) this.resizeFn();
             }
             return;
@@ -76,6 +85,14 @@ export class AppMessageBridge {
         }
         if (action === 'RESTORE_ACCOUNT_INDICES') {
             this.ui.settings.updateAccountIndices(payload);
+            return;
+        }
+        
+        // Note: RESTORE_CONNECTION_SETTINGS is handled by AppController to update Model List
+        
+        if (action === 'RESTORE_BROWSER_LOOP_LIMIT') {
+            // Pass to app controller to store state
+            this.app.handleIncomingMessage(event);
             return;
         }
 

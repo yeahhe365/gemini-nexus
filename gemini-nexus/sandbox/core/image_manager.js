@@ -227,14 +227,6 @@ export class ImageManager {
         return [...this.files];
     }
     
-    // Kept for backward compatibility if needed, but returns the first file or null
-    getFileData() {
-        if (this.files.length > 0) {
-            return this.files[0];
-        }
-        return { base64: null, type: null, name: null };
-    }
-
     _render() {
         this.imagePreview.innerHTML = '';
         

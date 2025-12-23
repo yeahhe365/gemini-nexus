@@ -70,6 +70,9 @@ export class MessageHandler {
     }
 
     handleStreamUpdate(request) {
+        // Prevent race condition: Ignore stream updates arriving shortly after user cancelled
+        if (this.app.prompt.isCancellationRecent()) return;
+
         // If we don't have a bubble yet, create one
         if (!this.streamingBubble) {
             this.streamingBubble = appendMessage(this.ui.historyDiv, "", 'ai', null, "");

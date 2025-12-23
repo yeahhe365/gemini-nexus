@@ -6,11 +6,12 @@ import {
     ChatTemplate, 
     FooterTemplate, 
     ViewerTemplate, 
-    SettingsTemplate 
+    SettingsTemplate,
+    TabSelectorTemplate
 } from './templates.js';
 
 export function renderLayout() {
-    const LayoutTemplate = SidebarTemplate + HeaderTemplate + ChatTemplate + FooterTemplate + ViewerTemplate + SettingsTemplate;
+    const LayoutTemplate = SidebarTemplate + HeaderTemplate + ChatTemplate + FooterTemplate + ViewerTemplate + SettingsTemplate + TabSelectorTemplate;
     const app = document.getElementById('app');
     if (app) app.innerHTML = LayoutTemplate;
 }

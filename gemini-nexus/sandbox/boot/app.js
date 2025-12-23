@@ -60,8 +60,6 @@ export function initAppMode() {
         const imageManager = new ImageManager({
             imageInput: document.getElementById('image-input'),
             imagePreview: document.getElementById('image-preview'),
-            previewThumb: document.getElementById('preview-thumb'),
-            removeImgBtn: document.getElementById('remove-img'),
             inputWrapper: document.querySelector('.input-wrapper'),
             inputFn: document.getElementById('prompt')
         }, {

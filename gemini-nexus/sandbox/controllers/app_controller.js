@@ -63,11 +63,29 @@ export class AppController {
             btn.classList.toggle('active', this.browserControlActive);
         }
         
+        // Show/Hide the tab switcher in header
+        this.ui.toggleTabSwitcher(this.browserControlActive);
+        
+        // Signal background to start/stop debugger session immediately
+        sendToBackground({ 
+            action: "TOGGLE_BROWSER_CONTROL", 
+            enabled: this.browserControlActive 
+        });
+        
         if (this.browserControlActive) {
             // Disable page context if browser control is on (optional preference, 
             // but usually commands don't need full page context context)
             // For now, keeping them independent.
         }
+    }
+    
+    handleTabSwitcher() {
+        sendToBackground({ action: "GET_OPEN_TABS" });
+    }
+    
+    handleTabSelected(tabId, shouldSwitch = true) {
+        // tabId can be null (to unlock) or an integer
+        sendToBackground({ action: "SWITCH_TAB", tabId: tabId, switchVisual: shouldSwitch });
     }
 
     // --- Delegation to Sub-Controllers ---
@@ -158,18 +176,34 @@ export class AppController {
             return;
         }
 
+        if (action === 'RESTORE_CONNECTION_SETTINGS') {
+            this.ui.settings.updateConnectionSettings(payload);
+            this.ui.updateModelList(payload.useOfficialApi);
+            return;
+        }
+
         if (action === 'BACKGROUND_MESSAGE') {
             if (payload.action === 'SWITCH_SESSION') {
                 this.switchToSession(payload.sessionId);
                 return;
             }
+            // Tab list response
+            if (payload.action === 'OPEN_TABS_RESULT') {
+                this.ui.openTabSelector(payload.tabs, (tabId, shouldSwitch) => this.handleTabSelected(tabId, shouldSwitch), payload.lockedTabId);
+                return;
+            }
+            // Tab Locked Notification (Auto-lock update)
+            if (payload.action === 'TAB_LOCKED') {
+                if (this.ui && this.ui.tabSelector) {
+                    this.ui.tabSelector.updateTrigger(payload.tab);
+                }
+                return;
+            }
+            
             await this.messageHandler.handle(payload);
         }
-    }
-
-    // Kept for simple access if needed by message_handler, 
-    // though now sessionFlow handles refresh.
-    persistSessions() {
-        saveSessionsToStorage(this.sessionManager.sessions);
+        
+        // Pass other messages to message bridge handler if not handled here
+        // (AppMessageBridge handles standard restores, this controller handles extended logic)
     }
 }

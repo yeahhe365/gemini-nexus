@@ -10,7 +10,11 @@ export class SnapshotManager {
     constructor(connection) {
         this.connection = connection;
         this.snapshotMap = new Map(); // Maps uid -> backendNodeId
+        this.uidToAxNode = new Map(); // Maps uid -> AXNode (raw)
+        this.uidToNodeId = new Map(); // Maps uid -> nodeId (AX ID)
+        this.nodeIdToUid = new Map(); // Maps nodeId -> uid
         this.snapshotIdCount = 0;
+        this.lastSnapshotNodes = []; // Store raw nodes for traversal
         
         // Listen to connection detach to clear state
         this.connection.onDetach(() => this.clear());
@@ -18,10 +22,57 @@ export class SnapshotManager {
 
     clear() {
         this.snapshotMap.clear();
+        this.uidToAxNode.clear();
+        this.uidToNodeId.clear();
+        this.nodeIdToUid.clear();
+        this.lastSnapshotNodes = [];
     }
 
     getBackendNodeId(uid) {
         return this.snapshotMap.get(uid);
+    }
+
+    getAXNode(uid) {
+        return this.uidToAxNode.get(uid);
+    }
+    
+    // Helper to get value from CDP AX property
+    _getVal(prop) {
+        return prop && prop.value;
+    }
+
+    /**
+     * Traverses descendants of a node (skipping uninteresting intermediate nodes logic is implicitly handled by using the raw tree)
+     * to find a node matching the predicate.
+     */
+    findDescendant(rootUid, predicate) {
+        const rootNodeId = this.uidToNodeId.get(rootUid);
+        if (!rootNodeId) return null;
+
+        const queue = [rootNodeId];
+        const visited = new Set();
+
+        while (queue.length > 0) {
+            const nodeId = queue.shift();
+            if (visited.has(nodeId)) continue;
+            visited.add(nodeId);
+
+            const node = this.lastSnapshotNodes.find(n => n.nodeId === nodeId);
+            if (!node) continue;
+
+            // Check predicate if this node has a UID (is exposed)
+            const uid = this.nodeIdToUid.get(nodeId);
+            if (uid && uid !== rootUid) {
+                if (predicate(node, uid)) {
+                    return uid;
+                }
+            }
+
+            if (node.childIds) {
+                queue.push(...node.childIds);
+            }
+        }
+        return null;
     }
 
     async takeSnapshot(args = {}) {
@@ -33,12 +84,16 @@ export class SnapshotManager {
         
         // Get the full accessibility tree from CDP
         const { nodes } = await this.connection.sendCommand("Accessibility.getFullAXTree");
+        this.lastSnapshotNodes = nodes;
         
         // Setup new snapshot ID generation
         this.snapshotIdCount++;
         const currentSnapshotPrefix = this.snapshotIdCount;
         let nodeCounter = 0;
         this.snapshotMap.clear();
+        this.uidToAxNode.clear();
+        this.uidToNodeId.clear();
+        this.nodeIdToUid.clear();
 
         // Identify Root: Node that is not a child of any other node
         const allChildIds = new Set(nodes.flatMap(n => n.childIds || []));
@@ -47,7 +102,7 @@ export class SnapshotManager {
         if (!root) return "Error: Could not find root of A11y tree.";
 
         // --- Helpers ---
-        const getVal = (prop) => prop && prop.value;
+        const getVal = this._getVal;
         const escapeStr = (str) => {
             const s = String(str);
             // Only quote if necessary (contains spaces or special chars)
@@ -56,7 +111,7 @@ export class SnapshotManager {
         };
 
         // Mappings for boolean capabilities (property name) -> attribute name
-        // Based on chrome-devtools-mcp snapshotFormatter.ts
+        // Aligned with chrome-devtools-mcp snapshotFormatter.ts
         const booleanPropertyMap = {
             disabled: 'disableable',
             expanded: 'expandable',
@@ -85,8 +140,6 @@ export class SnapshotManager {
             // Skip purely structural/generic roles unless they have a specific name
             if (role === 'generic' || role === 'StructuralContainer' || role === 'div' || role === 'text' || role === 'none' || role === 'presentation') {
                  if (name && name.trim().length > 0) return true;
-                 // Keep if it has input-related properties? 
-                 // For token efficiency, we bias towards removing generic containers.
                  return false; 
             }
             return true;
@@ -108,6 +161,10 @@ export class SnapshotManager {
                 if (node.backendDOMNodeId) {
                     this.snapshotMap.set(uid, node.backendDOMNodeId);
                 }
+                
+                this.uidToAxNode.set(uid, node);
+                this.uidToNodeId.set(uid, node.nodeId);
+                this.nodeIdToUid.set(node.nodeId, uid);
 
                 // 2. Extract Core Attributes
                 let role = getVal(node.role);
@@ -118,15 +175,18 @@ export class SnapshotManager {
                 let value = getVal(node.value);
                 const description = getVal(node.description);
 
-                // Fix for options missing value (Use text content)
-                if (role === 'option' && !value && name) {
-                    value = name;
-                }
-
                 let parts = [`uid=${uid}`];
                 if (role) parts.push(role);
                 if (name) parts.push(escapeStr(name));
-                if (value) parts.push(`value=${escapeStr(value)}`);
+                
+                // Optimization (from MCP): Don't print value if it is identical to name (text)
+                // This saves tokens for Select options where value often equals text label in AXTree
+                if (value !== undefined && value !== "") {
+                    if (String(value) !== name) {
+                        parts.push(`value=${escapeStr(value)}`);
+                    }
+                }
+                
                 if (description) parts.push(`desc=${escapeStr(description)}`);
 
                 // 3. Process Properties
@@ -153,6 +213,8 @@ export class SnapshotManager {
                                 parts.push(key);
                             }
                         } else if (val !== undefined && val !== "") {
+                            // Optimization: skip value in properties too if redundant
+                            if (key === 'value' && String(val) === name) continue;
                             parts.push(`${key}=${escapeStr(val)}`);
                         }
                     }

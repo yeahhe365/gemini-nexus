@@ -10,6 +10,7 @@ export class PromptController {
         this.ui = uiController;
         this.imageManager = imageManager;
         this.app = appController;
+        this.cancellationTimestamp = 0;
     }
 
     async send() {
@@ -79,11 +80,17 @@ export class PromptController {
     cancel() {
         if (!this.app.isGenerating) return;
         
+        this.cancellationTimestamp = Date.now();
+        
         sendToBackground({ action: "CANCEL_PROMPT" });
         this.app.messageHandler.resetStream();
         
         this.app.isGenerating = false;
         this.ui.setLoading(false);
         this.ui.updateStatus(t('cancelled'));
+    }
+
+    isCancellationRecent() {
+        return (Date.now() - this.cancellationTimestamp) < 2000; // 2s window
     }
 }

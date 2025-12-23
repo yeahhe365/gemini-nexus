@@ -6,4 +6,4 @@ export const DEFAULT_SHORTCUTS = {
     openPanel: "Alt+S"
 };
 
-export const DEFAULT_MODEL = "gemini-2.5-flash";
+export const DEFAULT_MODEL = "gemini-3-flash";

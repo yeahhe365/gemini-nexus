@@ -1,5 +1,5 @@
 
-// messaging.js
+// lib/messaging.js
 
 export function sendToBackground(payload) {
     window.parent.postMessage({
@@ -81,5 +81,16 @@ export function saveAccountIndicesToStorage(indices) {
     window.parent.postMessage({
         action: 'SAVE_ACCOUNT_INDICES',
         payload: indices
+    }, '*');
+}
+
+export function requestConnectionSettingsFromStorage() {
+    window.parent.postMessage({ action: 'GET_CONNECTION_SETTINGS' }, '*');
+}
+
+export function saveConnectionSettingsToStorage(useOfficialApi, apiKey, thinkingLevel) {
+    window.parent.postMessage({
+        action: 'SAVE_CONNECTION_SETTINGS',
+        payload: { useOfficialApi, apiKey, thinkingLevel }
     }, '*');
 }

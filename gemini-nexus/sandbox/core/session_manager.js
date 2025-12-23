@@ -50,9 +50,13 @@ export class SessionManager {
 
     updateTitle(id, text) {
         const session = this.sessions.find(s => s.id === id);
-        if (session && session.title === "New Chat") {
-            session.title = text.substring(0, 30) + (text.length > 30 ? "..." : "");
-            return true;
+        if (session) {
+            // Clean text (remove newlines) for display
+            const cleanText = (text || "").replace(/[\r\n]+/g, " ").trim();
+            if (cleanText) {
+                session.title = cleanText.substring(0, 30) + (cleanText.length > 30 ? "..." : "");
+                return true;
+            }
         }
         return false;
     }

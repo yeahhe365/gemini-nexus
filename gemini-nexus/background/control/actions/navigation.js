@@ -32,7 +32,12 @@ export class NavigationActions extends BaseActionHandler {
     async newPage({ url }) {
         const targetUrl = url || 'about:blank';
         const tab = await chrome.tabs.create({ url: targetUrl });
-        return `Created new page (id: ${tab.id}) loading ${targetUrl}`;
+        
+        // Return object with metadata so ControlManager can update the locked tab
+        return {
+            output: `Created new page (id: ${tab.id}) loading ${targetUrl}`,
+            _meta: { switchTabId: tab.id }
+        };
     }
 
     async closePage({ index }) {
@@ -56,6 +61,11 @@ export class NavigationActions extends BaseActionHandler {
         if (!tab) return `Error: Index ${index} not found.`;
         
         await chrome.tabs.update(tab.id, { active: true });
-        return `Switched to page ${index}: ${tab.title}`;
+        
+        // Return object with metadata so ControlManager can update the locked tab
+        return {
+            output: `Switched to page ${index}: ${tab.title}`,
+            _meta: { switchTabId: tab.id }
+        };
     }
 }

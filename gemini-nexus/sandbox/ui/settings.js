@@ -1,6 +1,6 @@
 
 // sandbox/ui/settings.js
-import { saveShortcutsToStorage, saveThemeToStorage, requestThemeFromStorage, saveLanguageToStorage, requestLanguageFromStorage, saveTextSelectionToStorage, requestTextSelectionFromStorage, saveSidebarBehaviorToStorage, saveImageToolsToStorage, requestImageToolsFromStorage, saveAccountIndicesToStorage, requestAccountIndicesFromStorage, sendToBackground } from '../../lib/messaging.js';
+import { saveShortcutsToStorage, saveThemeToStorage, requestThemeFromStorage, saveLanguageToStorage, requestLanguageFromStorage, saveTextSelectionToStorage, requestTextSelectionFromStorage, saveSidebarBehaviorToStorage, saveImageToolsToStorage, requestImageToolsFromStorage, saveAccountIndicesToStorage, requestAccountIndicesFromStorage, saveConnectionSettingsToStorage, requestConnectionSettingsFromStorage, sendToBackground } from '../../lib/messaging.js';
 import { setLanguagePreference, getLanguagePreference } from '../core/i18n.js';
 import { SettingsView } from './settings/view.js';
 import { DEFAULT_SHORTCUTS } from '../../lib/constants.js';
@@ -16,6 +16,9 @@ export class SettingsController {
         this.textSelectionEnabled = true;
         this.imageToolsEnabled = true;
         this.accountIndices = "0";
+        this.useOfficialApi = false;
+        this.apiKey = "";
+        this.thinkingLevel = "low";
 
         // Initialize View
         this.view = new SettingsView({
@@ -63,11 +66,13 @@ export class SettingsController {
         this.view.setLanguageValue(getLanguagePreference());
         this.view.setToggles(this.textSelectionEnabled, this.imageToolsEnabled);
         this.view.setAccountIndices(this.accountIndices);
+        this.view.setConnectionSettings(this.useOfficialApi, this.apiKey, this.thinkingLevel);
         
         // Refresh from storage
         requestTextSelectionFromStorage();
         requestImageToolsFromStorage();
         requestAccountIndicesFromStorage();
+        requestConnectionSettingsFromStorage();
         
         this.fetchGithubStars();
     }
@@ -90,6 +95,17 @@ export class SettingsController {
         this.accountIndices = val;
         const cleaned = val.replace(/[^0-9,]/g, '');
         saveAccountIndicesToStorage(cleaned);
+        
+        // Connection
+        this.useOfficialApi = data.connection.useOfficialApi;
+        this.apiKey = data.connection.apiKey;
+        this.thinkingLevel = data.connection.thinkingLevel || "low";
+        saveConnectionSettingsToStorage(this.useOfficialApi, this.apiKey, this.thinkingLevel);
+
+        // Notify app of critical setting changes
+        if (this.callbacks.onSettingsChanged) {
+            this.callbacks.onSettingsChanged(data.connection);
+        }
     }
 
     resetSettings() {
@@ -161,6 +177,13 @@ export class SettingsController {
     updateImageTools(enabled) {
         this.imageToolsEnabled = enabled;
         this.view.setToggles(this.textSelectionEnabled, this.imageToolsEnabled);
+    }
+    
+    updateConnectionSettings(settings) {
+        this.useOfficialApi = settings.useOfficialApi;
+        this.apiKey = settings.apiKey;
+        this.thinkingLevel = settings.thinkingLevel || "low";
+        this.view.setConnectionSettings(this.useOfficialApi, this.apiKey, this.thinkingLevel);
     }
     
     updateSidebarBehavior(behavior) {

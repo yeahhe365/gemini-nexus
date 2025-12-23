@@ -54,24 +54,57 @@ export class ObservationActions extends BaseActionHandler {
         }
     }
 
-    async evaluateScript({ script }) {
+    /**
+     * Evaluates a script in the browser context.
+     * Supports passing arguments (including DOM elements via UIDs).
+     */
+    async evaluateScript({ script, args = [] }) {
         try {
-            // Wrap in async IIFE to support top-level await and ensure return value capture
-            // We use 'try-catch' inside the script to return errors as values
-            const expression = `
-                (async () => {
-                    try {
-                        ${script}
-                    } catch (e) {
-                        return "Error: " + e.message + "\\nStack: " + e.stack;
-                    }
-                })()
-            `;
+            const callArguments = [];
 
-            const res = await this.cmd("Runtime.evaluate", {
-                expression: expression,
-                returnByValue: true,
-                awaitPromise: true // Allow async operations
+            // Resolve arguments: UIDs to ObjectIds
+            if (args && Array.isArray(args)) {
+                for (const arg of args) {
+                    if (typeof arg === 'object' && arg !== null && arg.uid) {
+                        // Argument is a DOM reference
+                        try {
+                            const objectId = await this.getObjectIdFromUid(arg.uid);
+                            callArguments.push({ objectId });
+                        } catch (e) {
+                            return `Error: Could not resolve argument with uid ${arg.uid}: ${e.message}`;
+                        }
+                    } else {
+                        // Regular JSON argument
+                        callArguments.push({ value: arg });
+                    }
+                }
+            }
+
+            // If we have object arguments, we must use Runtime.callFunctionOn
+            // If no args, we can treat the script as an expression or a function declaration.
+            // For robustness, we wrap it to ensure async/await support.
+            
+            // NOTE: Chrome DevTools MCP passes the script as a function declaration string: "function(a, b) { ... }"
+            // If the user provided a raw string "document.title", we wrap it.
+            
+            let functionDeclaration = script.trim();
+            const isFunction = functionDeclaration.startsWith('function') || functionDeclaration.startsWith('async function') || functionDeclaration.startsWith('(') || functionDeclaration.includes('=>');
+
+            if (!isFunction) {
+                // Wrap simple expressions in a function
+                functionDeclaration = `function() { return (${script}); }`;
+            }
+
+            // Ensure it's treated as a function declaration by CDP
+            // If the script is "() => { ... }", CDP accepts it as functionDeclaration.
+            
+            const res = await this.cmd("Runtime.callFunctionOn", {
+                functionDeclaration: functionDeclaration,
+                arguments: callArguments,
+                executionContextId: undefined, // Default context
+                returnByValue: true, // Return JSON result
+                awaitPromise: true,  // Support async
+                userGesture: true
             });
 
             if (res.exceptionDetails) {

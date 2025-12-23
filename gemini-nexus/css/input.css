@@ -5,6 +5,7 @@
 
 
 
+
 .footer {
     position: fixed;
     bottom: 0;
@@ -351,7 +352,8 @@ body.layout-wide .tools-container {
     box-shadow: none !important;
     cursor: pointer;
     position: relative;
-    border: 2px solid transparent; 
+    border: 2px solid transparent;
+    pointer-events: auto; /* Ensure it is clickable */
 }
 
 /* Create Spinner Ring */
@@ -363,6 +365,7 @@ body.layout-wide .tools-container {
     border: 2px solid var(--border-color); /* Track */
     border-top-color: var(--primary); /* Indicator */
     animation: spin 0.8s linear infinite;
+    pointer-events: none; /* Ensure pseudo-element doesn't block click target */
 }
 
 #send.generating:hover {

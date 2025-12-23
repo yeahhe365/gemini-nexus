@@ -2,8 +2,9 @@
 // background/handlers/ui.js
 
 export class UIMessageHandler {
-    constructor(imageHandler) {
+    constructor(imageHandler, controlManager) {
         this.imageHandler = imageHandler;
+        this.controlManager = controlManager;
     }
 
     handle(request, sender, sendResponse) {
@@ -65,7 +66,15 @@ export class UIMessageHandler {
         if (request.action === "CAPTURE_SCREENSHOT") {
             (async () => {
                 try {
-                    const result = await this.imageHandler.captureScreenshot();
+                    // Determine correct Window ID
+                    let windowId = sender.tab ? sender.tab.windowId : null;
+                    if (!windowId) {
+                        // Fallback: If triggered from sidepanel, find last focused window
+                        const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+                        if (tab) windowId = tab.windowId;
+                    }
+
+                    const result = await this.imageHandler.captureScreenshot(windowId);
                     chrome.runtime.sendMessage(result).catch(() => {});
                 } catch(e) {
                      console.error("Screenshot error", e);
@@ -90,7 +99,8 @@ export class UIMessageHandler {
                 const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
                 if (tab) {
                     // Pre-capture for the overlay background
-                    const capture = await this.imageHandler.captureScreenshot();
+                    // Pass windowId explicitly to capture the correct window
+                    const capture = await this.imageHandler.captureScreenshot(tab.windowId);
                     chrome.tabs.sendMessage(tab.id, { 
                         action: "START_SELECTION",
                         image: capture.base64,
@@ -105,7 +115,9 @@ export class UIMessageHandler {
         if (request.action === "AREA_SELECTED") {
             (async () => {
                 try {
-                    const result = await this.imageHandler.captureArea(request.area);
+                    // Use windowId from sender tab to ensure we capture the same window where selection occurred
+                    const windowId = sender.tab ? sender.tab.windowId : null;
+                    const result = await this.imageHandler.captureArea(request.area, windowId);
                     if (result && sender.tab) {
                          // Send specifically to the tab that initiated the selection
                          chrome.tabs.sendMessage(sender.tab.id, result).catch(() => {});
@@ -142,6 +154,58 @@ export class UIMessageHandler {
                 }
                 sendResponse({ status: "completed" });
             })();
+            return true;
+        }
+        
+        // --- TAB MANAGEMENT ---
+        
+        if (request.action === "GET_OPEN_TABS") {
+            (async () => {
+                const tabs = await chrome.tabs.query({ currentWindow: true });
+                const safeTabs = tabs.map(t => ({
+                    id: t.id,
+                    title: t.title,
+                    url: t.url,
+                    favIconUrl: t.favIconUrl,
+                    active: t.active
+                }));
+                
+                // Get the currently locked tab ID to inform UI state
+                const lockedTabId = this.controlManager ? this.controlManager.getTargetTabId() : null;
+
+                chrome.runtime.sendMessage({
+                    action: "OPEN_TABS_RESULT",
+                    tabs: safeTabs,
+                    lockedTabId: lockedTabId
+                }).catch(() => {});
+                sendResponse({ status: "completed" });
+            })();
+            return true;
+        }
+        
+        if (request.action === "SWITCH_TAB") {
+            // tabId can be null to unlock
+            if (this.controlManager) {
+                this.controlManager.setTargetTab(request.tabId || null);
+            }
+            // Only switch visual tab if a specific ID is provided AND switchVisual is not explicitly false
+            if (request.tabId && request.switchVisual !== false) {
+                chrome.tabs.update(request.tabId, { active: true }).catch(err => console.warn(err));
+            }
+            sendResponse({ status: "switched" });
+            return true;
+        }
+
+        // --- BROWSER CONTROL TOGGLE ---
+        if (request.action === "TOGGLE_BROWSER_CONTROL") {
+            if (this.controlManager) {
+                if (request.enabled) {
+                    this.controlManager.enableControl();
+                } else {
+                    this.controlManager.disableControl();
+                }
+            }
+            sendResponse({ status: "processed" });
             return true;
         }
 

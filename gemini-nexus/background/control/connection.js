@@ -73,7 +73,13 @@ export class BrowserConnection {
         return new Promise((resolve, reject) => {
             chrome.debugger.attach({ tabId }, "1.3", async () => {
                 if (chrome.runtime.lastError) {
-                    console.warn("Debugger attach failed (likely restricted URL):", chrome.runtime.lastError.message);
+                    const msg = chrome.runtime.lastError.message;
+                    // Suppress common expected errors for restricted targets to avoid log noise
+                    if (msg.includes("restricted URL") || msg.includes("Cannot access") || msg.includes("Attach to webui")) {
+                        console.debug("[BrowserConnection] Attach skipped (restricted):", msg);
+                    } else {
+                        console.warn("[BrowserConnection] Attach failed:", msg);
+                    }
                     // Resolve anyway to allow fallback actions (like navigation) to proceed without debugger
                     resolve();
                 } else {

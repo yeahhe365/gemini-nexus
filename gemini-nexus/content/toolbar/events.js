@@ -104,7 +104,7 @@
 
             // --- Input ---
             this._add(askInput, 'keydown', (e) => {
-                if (e.key === 'Enter') {
+                if (e.key === 'Enter' && !e.isComposing) {
                     e.preventDefault();
                     this.controller.actions.submitAsk(e);
                 }

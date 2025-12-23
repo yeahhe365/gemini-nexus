@@ -104,8 +104,15 @@ export class WaitForHelper {
             await this.connection.sendCommand("Runtime.evaluate", {
                 expression: `
                     (async () => {
-                        if (!document || !document.body) return true; // Fail safe
+                        const startTime = Date.now();
+
+                        // 1. Wait for document.body to exist
+                        while (!document || !document.body) {
+                            if (Date.now() - startTime > ${tMax}) return false;
+                            await new Promise(r => setTimeout(r, 100));
+                        }
                         
+                        // 2. Wait for stability
                         return await new Promise((resolve) => {
                             let timer = null;
                             
@@ -130,11 +137,12 @@ export class WaitForHelper {
                             // Initial timer (resolve if no mutations happen immediately)
                             timer = setTimeout(done, ${tStable});
                             
-                            // Max safety timeout (resolve anyway to prevent hanging)
+                            // Max safety timeout (deduct time spent waiting for body)
+                            const remaining = Math.max(100, ${tMax} - (Date.now() - startTime));
                             setTimeout(() => {
                                 observer.disconnect();
                                 resolve(false); 
-                            }, ${tMax});
+                            }, remaining);
                         });
                     })()
                 `,

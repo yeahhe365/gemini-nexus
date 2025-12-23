@@ -7,6 +7,12 @@ export function bindAppEvents(app, ui, setResizeRef) {
     // New Chat Buttons
     document.getElementById('new-chat-header-btn').addEventListener('click', () => app.handleNewChat());
     
+    // Tab Switcher Button
+    const tabSwitcherBtn = document.getElementById('tab-switcher-btn');
+    if (tabSwitcherBtn) {
+        tabSwitcherBtn.addEventListener('click', () => app.handleTabSwitcher());
+    }
+    
     // Open Full Page Button
     const openFullPageBtn = document.getElementById('open-full-page-btn');
     if (openFullPageBtn) {
@@ -36,11 +42,13 @@ export function bindAppEvents(app, ui, setResizeRef) {
     if (browserControlBtn) {
         browserControlBtn.addEventListener('click', () => {
             app.toggleBrowserControl();
+            if (ui.inputFn) ui.inputFn.focus();
         });
     }
 
     document.getElementById('quote-btn').addEventListener('click', () => {
         sendToBackground({ action: "GET_ACTIVE_SELECTION" });
+        if (ui.inputFn) ui.inputFn.focus();
     });
 
     document.getElementById('ocr-btn').addEventListener('click', () => {
@@ -64,7 +72,10 @@ export function bindAppEvents(app, ui, setResizeRef) {
     // Page Context Toggle
     const contextBtn = document.getElementById('page-context-btn');
     if (contextBtn) {
-        contextBtn.addEventListener('click', () => app.togglePageContext());
+        contextBtn.addEventListener('click', () => {
+            app.togglePageContext();
+            if (ui.inputFn) ui.inputFn.focus();
+        });
     }
 
     // Model Selector
@@ -73,6 +84,13 @@ export function bindAppEvents(app, ui, setResizeRef) {
     // Auto-resize Logic
     const resizeModelSelect = () => {
         if (!modelSelect) return;
+        
+        // Safety: Ensure selectedIndex is valid
+        if (modelSelect.selectedIndex === -1) {
+            if (modelSelect.options.length > 0) modelSelect.selectedIndex = 0;
+        }
+        if (modelSelect.selectedIndex === -1) return;
+
         const tempSpan = document.createElement('span');
         Object.assign(tempSpan.style, {
             visibility: 'hidden',
@@ -96,7 +114,8 @@ export function bindAppEvents(app, ui, setResizeRef) {
              app.handleModelChange(e.target.value);
              resizeModelSelect();
         });
-        resizeModelSelect();
+        // Call initial resize after a short delay to ensure fonts/styles loaded
+        setTimeout(resizeModelSelect, 50);
     }
 
     // Input Key Handling
@@ -117,7 +136,7 @@ export function bindAppEvents(app, ui, setResizeRef) {
                 return;
             }
 
-            if (e.key === 'Enter' && !e.shiftKey) {
+            if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
                 e.preventDefault();
                 sendBtn.click();
             }

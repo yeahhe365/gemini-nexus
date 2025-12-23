@@ -21,6 +21,11 @@ export const translations = {
         "stopGenerating": "Stop generating",
         "settingsTitle": "Settings",
         "general": "General",
+        "connection": "Connection",
+        "useOfficialApi": "Use Official Gemini API",
+        "useOfficialApiDesc": "Use your own API key with Gemini 3 Flash (Low Thinking).",
+        "apiKey": "API Key",
+        "apiKeyPlaceholder": "Paste your Gemini API Key",
         "textSelection": "Text Selection Toolbar",
         "textSelectionDesc": "Show floating toolbar when selecting text.",
         "imageToolsToggle": "Show Image Tools Button",
@@ -89,7 +94,12 @@ export const translations = {
         "close": "Close",
         "sendMessageTooltip": "Send message",
         "openFullPageTooltip": "Open in full page",
-        "modelSelectTooltip": "Select Model (Tab to cycle)"
+        "modelSelectTooltip": "Select Model (Tab to cycle)",
+        "selectTab": "Select Active Tab",
+        "selectTabTooltip": "Select a tab to control",
+        "noTabsFound": "No open tabs found.",
+        "lockTab": "Lock Tab",
+        "unlockTab": "Unlock Tab (Auto-follow Active)",
     },
     zh: {
         "searchPlaceholder": "搜索对话",
@@ -110,6 +120,11 @@ export const translations = {
         "stopGenerating": "停止生成",
         "settingsTitle": "设置",
         "general": "常规",
+        "connection": "连接",
+        "useOfficialApi": "使用官方 Gemini API",
+        "useOfficialApiDesc": "使用自定义 API Key (Gemini 3 Flash, Low Thinking)。",
+        "apiKey": "API Key",
+        "apiKeyPlaceholder": "粘贴 Gemini API Key",
         "textSelection": "划词工具栏",
         "textSelectionDesc": "选中网页文本时显示悬浮工具栏。",
         "imageToolsToggle": "显示图片工具按钮",
@@ -178,7 +193,12 @@ export const translations = {
         "close": "关闭",
         "sendMessageTooltip": "发送消息",
         "openFullPageTooltip": "新标签页打开",
-        "modelSelectTooltip": "选择模型 (按 Tab 切换)"
+        "modelSelectTooltip": "选择模型 (按 Tab 切换)",
+        "selectTab": "选择活动标签页",
+        "selectTabTooltip": "选择要控制的标签页",
+        "noTabsFound": "未找到打开的标签页。",
+        "lockTab": "锁定标签页",
+        "unlockTab": "解锁 (自动跟随活动标签页)",
     }
 };
 
