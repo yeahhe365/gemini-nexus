@@ -52,7 +52,6 @@
 | **脚本执行** | `evaluate_script` | 在网页 Context 中运行自定义 JavaScript |
 
 ---
-以下是为您翻译的中文内容：
 
 ## 外部 MCP 工具（远程服务器）
 
