@@ -12,8 +12,8 @@ export class StateManager {
     init() {
         // Start fetching bulk data immediately
         chrome.storage.local.get([
-            'geminiSessions', 
-            'pendingSessionId', 
+            'geminiSessions',
+            'pendingSessionId',
             'pendingMode', // Fetch pending mode (e.g. browser_control)
             'geminiShortcuts',
             'geminiModel',
@@ -33,9 +33,36 @@ export class StateManager {
             'geminiMcpTransport',
             'geminiMcpServerUrl',
             'geminiMcpServers',
-            'geminiMcpActiveServerId'
+            'geminiMcpActiveServerId',
+            // IMPORTANT: Also fetch theme and language from chrome.storage
+            // This fixes PIP window theme issue where iframe has separate localStorage
+            'geminiTheme',
+            'geminiLanguage'
         ], (result) => {
             this.data = result;
+
+            // Migrate theme and language from localStorage to chrome.storage if needed
+            // This ensures backward compatibility for users who had settings in localStorage only
+            const localTheme = localStorage.getItem('geminiTheme');
+            const localLang = localStorage.getItem('geminiLanguage');
+
+            // If chrome.storage doesn't have theme but localStorage does, migrate it
+            if (!result.geminiTheme && localTheme) {
+                chrome.storage.local.set({ geminiTheme: localTheme });
+                this.data.geminiTheme = localTheme;
+            } else if (result.geminiTheme) {
+                // Sync chrome.storage to localStorage
+                localStorage.setItem('geminiTheme', result.geminiTheme);
+            }
+
+            // Same for language
+            if (!result.geminiLanguage && localLang) {
+                chrome.storage.local.set({ geminiLanguage: localLang });
+                this.data.geminiLanguage = localLang;
+            } else if (result.geminiLanguage) {
+                localStorage.setItem('geminiLanguage', result.geminiLanguage);
+            }
+
             this.trySendInitData();
         });
 
@@ -129,12 +156,13 @@ export class StateManager {
             delete this.data.pendingMode;
         }
 
-        // 5. LocalStorage Sync (Theme/Lang)
-        const cachedTheme = localStorage.getItem('geminiTheme') || 'system';
-        const cachedLang = localStorage.getItem('geminiLanguage') || 'system';
-        
-        this.frame.postMessage({ action: 'RESTORE_LANGUAGE', payload: cachedLang });
-        this.frame.postMessage({ action: 'RESTORE_THEME', payload: cachedTheme });
+        // 5. Theme & Language (from chrome.storage, synced to localStorage)
+        // Use chrome.storage as source of truth, localStorage is just a cache
+        const theme = this.data.geminiTheme || 'system';
+        const lang = this.data.geminiLanguage || 'system';
+
+        this.frame.postMessage({ action: 'RESTORE_LANGUAGE', payload: lang });
+        this.frame.postMessage({ action: 'RESTORE_THEME', payload: theme });
     }
 
     // --- State Accessors & Updaters ---
@@ -148,25 +176,27 @@ export class StateManager {
     save(key, value) {
         // Update local cache
         if (this.data) this.data[key] = value;
-        
-        // Update Chrome Storage
+
+        // Update Chrome Storage (source of truth)
         const update = {};
         update[key] = value;
         chrome.storage.local.set(update);
 
-        // Special handling for localStorage items
+        // Sync to localStorage for fast access (theme and language only)
+        // localStorage is just a cache, chrome.storage is the source of truth
         if (key === 'geminiTheme') localStorage.setItem('geminiTheme', value);
         if (key === 'geminiLanguage') localStorage.setItem('geminiLanguage', value);
     }
 
     // Getters for on-demand requests
     getCached(key) {
-        // For localStorage items, read directly
+        // Try memory cache first (from chrome.storage)
+        if (this.data && this.data[key] !== undefined) return this.data[key];
+
+        // Fallback to localStorage for theme/language (for backward compatibility)
         if (key === 'geminiTheme') return localStorage.getItem('geminiTheme') || 'system';
         if (key === 'geminiLanguage') return localStorage.getItem('geminiLanguage') || 'system';
-        
-        // For Async items, try memory cache first, else async fetch (handled by caller typically)
-        if (this.data && this.data[key] !== undefined) return this.data[key];
+
         return null;
     }
 }

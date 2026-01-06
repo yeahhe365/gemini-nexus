@@ -28,6 +28,14 @@
         "mac": "Alt+S"
       },
       "description": "Open Gemini Nexus Sidebar"
+    },
+    "toggle_pip_window": {
+      "suggested_key": {
+        "default": "Alt+G",
+        "mac": "Alt+G"
+      },
+      "description": "Toggle Gemini Nexus Floating Window",
+      "global": true
     }
   },
   "side_panel": {
@@ -40,7 +48,8 @@
     {
       "matches": ["<all_urls>"],
       "js": [
-        "content/overlay.js", 
+        "content/pip.js",
+        "content/overlay.js",
         "content/toolbar/icons.js",
         "content/toolbar/styles/core.js",
         "content/toolbar/styles/widget.js",
@@ -83,7 +92,7 @@
   ],
   "web_accessible_resources": [
     {
-      "resources": ["logo.png", "sandbox/index.html"],
+      "resources": ["logo.png", "sandbox/index.html", "sidepanel/index.html", "css/*"],
       "matches": ["<all_urls>"]
     }
   ],

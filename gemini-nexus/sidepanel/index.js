@@ -9,7 +9,9 @@ const frameManager = new FrameManager();
 const stateManager = new StateManager(frameManager);
 const messageBridge = new MessageBridge(frameManager, stateManager);
 
-// Start Lifecycle
-frameManager.init();
-stateManager.init();
-messageBridge.init();
+// Start Lifecycle (async to handle PIP window theme waiting)
+(async () => {
+    await frameManager.init();
+    stateManager.init();
+    messageBridge.init();
+})();

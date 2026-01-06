@@ -9,10 +9,11 @@ console.log("%c Gemini Nexus v4.2.3 Ready ", "background: #333; color: #00ff00; 
     const router = window.GeminiMessageRouter;
     const Overlay = window.GeminiNexusOverlay;
     const Controller = window.GeminiToolbarController;
+    const Pip = window.GeminiPip;
 
     // Initialize Helpers
     const selectionOverlay = new Overlay();
-    const floatingToolbar = new Controller(); 
+    const floatingToolbar = new Controller();
 
     // Initialize Router
     router.init(floatingToolbar, selectionOverlay);
@@ -20,13 +21,29 @@ console.log("%c Gemini Nexus v4.2.3 Ready ", "background: #333; color: #00ff00; 
     // Link Shortcuts
     shortcuts.setController(floatingToolbar);
 
+    // Setup PIP message listener
+    chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+        if (message.action && message.action.startsWith('PIP_')) {
+            if (Pip && Pip.handle) {
+                Pip.handle(message).then(response => {
+                    sendResponse(response);
+                }).catch(error => {
+                    sendResponse({ success: false, error: error.message });
+                });
+                return true; // Will respond asynchronously
+            } else {
+                sendResponse({ success: false, error: 'PIP module not available' });
+            }
+        }
+    });
+
     // Handle initial settings that don't fit in dedicated modules yet
     chrome.storage.local.get(['geminiTextSelectionEnabled', 'geminiImageToolsEnabled'], (result) => {
         const selectionEnabled = result.geminiTextSelectionEnabled !== false;
         if (floatingToolbar) {
             floatingToolbar.setSelectionEnabled(selectionEnabled);
         }
-        
+
         const imageToolsEnabled = result.geminiImageToolsEnabled !== false;
         if (floatingToolbar) {
             floatingToolbar.setImageToolsEnabled(imageToolsEnabled);
@@ -45,5 +62,11 @@ console.log("%c Gemini Nexus v4.2.3 Ready ", "background: #333; color: #00ff00; 
             }
         }
     });
+
+    // Log PIP availability
+    if (Pip && Pip.isSupported()) {
+        console.log("%c PIP Mode Available! Press Alt+G to float Gemini Nexus ",
+                   "background: #4285f4; color: white; padding: 4px; border-radius: 3px");
+    }
 
 })();
