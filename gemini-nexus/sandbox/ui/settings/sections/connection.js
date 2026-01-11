@@ -312,15 +312,16 @@ export class ConnectionSection {
     }
 
     getData() {
-        const { 
-            providerSelect, apiKeyInput, thinkingLevelSelect, 
+        const {
+            providerSelect, apiKeyInput, thinkingLevelSelect,
             openaiBaseUrl, openaiApiKey, openaiModel,
             mcpEnabled
         } = this.elements;
 
         this._saveCurrentServerEdits();
         const servers = Array.isArray(this.mcpServers) ? this.mcpServers : [];
-        const active = this._getActiveServer();
+        // Get the first enabled server for legacy compatibility
+        const firstEnabled = servers.find(s => s.enabled !== false && s.url && s.url.trim());
 
         return {
             provider: providerSelect ? providerSelect.value : 'web',
@@ -332,14 +333,15 @@ export class ConnectionSection {
             openaiApiKey: openaiApiKey ? openaiApiKey.value.trim() : "",
             openaiModel: openaiModel ? openaiModel.value.trim() : "",
 
-            // MCP
+            // MCP - Multi-server mode: all enabled servers will be used
             mcpEnabled: mcpEnabled ? mcpEnabled.checked === true : false,
             mcpServers: servers,
+            // Keep mcpActiveServerId for backward compatibility but it's no longer required
             mcpActiveServerId: this.mcpActiveServerId || (servers[0] ? servers[0].id : null),
 
-            // Legacy: keep in sync with active server for backward compatibility
-            mcpTransport: active ? (active.transport || 'sse') : 'sse',
-            mcpServerUrl: active ? (active.url || '') : ''
+            // Legacy fields for single-server backward compatibility
+            mcpTransport: firstEnabled ? (firstEnabled.transport || 'sse') : 'sse',
+            mcpServerUrl: firstEnabled ? (firstEnabled.url || '') : ''
         };
     }
 
@@ -439,7 +441,9 @@ export class ConnectionSection {
 
             const name = (server.name || '').trim();
             const label = name || (server.url || 'MCP Server');
-            opt.textContent = server.enabled === false ? `${label} (disabled)` : label;
+            // Show enabled status with checkmark or cross
+            const status = server.enabled === false ? '✗' : '✓';
+            opt.textContent = `${status} ${label}`;
             mcpServerSelect.appendChild(opt);
         }
 
