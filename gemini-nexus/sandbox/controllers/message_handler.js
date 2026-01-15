@@ -90,12 +90,25 @@ export class MessageHandler {
 
         // If we don't have a bubble yet, create one
         if (!this.streamingBubble) {
-            this.streamingBubble = appendMessage(this.ui.historyDiv, "", 'ai', null, "");
+            // Determine the message index for the AI message
+            const session = this.sessionManager.getCurrentSession();
+            let messageIndex = null;
+
+            if (this.app.prompt.isRegenerating && this.app.prompt.regenerateIndex !== null) {
+                // For regeneration, use the regenerate index
+                messageIndex = this.app.prompt.regenerateIndex;
+            } else if (session) {
+                // For normal flow, the AI message will be at the end
+                messageIndex = session.messages.length;
+            }
+
+            console.log('[handleStreamUpdate] Creating streaming bubble with messageIndex:', messageIndex);
+            this.streamingBubble = appendMessage(this.ui.historyDiv, "", 'ai', null, "", messageIndex);
         }
-        
+
         // Update content if text or thoughts exist
         this.streamingBubble.update(request.text, request.thoughts);
-        
+
         // Ensure UI state reflects generation
         if (!this.app.isGenerating) {
             this.app.isGenerating = true;
@@ -106,7 +119,10 @@ export class MessageHandler {
     handleGeminiReply(request) {
         this.app.isGenerating = false;
         this.ui.setLoading(false);
-        
+
+        console.log('[handleGeminiReply] isRegenerating:', this.app.prompt.isRegenerating);
+        console.log('[handleGeminiReply] regenerateIndex:', this.app.prompt.regenerateIndex);
+
         const session = this.sessionManager.getCurrentSession();
         if (session) {
             // Note: We do NOT save to sessionManager/storage here anymore.
@@ -124,21 +140,62 @@ export class MessageHandler {
             if (this.streamingBubble) {
                 // Finalize the streaming bubble with complete text and thoughts
                 this.streamingBubble.update(request.text, request.thoughts);
-                
+
                 // Inject images if any
                 if (request.images && request.images.length > 0) {
                     this.streamingBubble.addImages(request.images);
                 }
-                
+
                 if (request.status !== 'success') {
                     // Optionally style error
                 }
-                
+
                 // Clear reference
                 this.streamingBubble = null;
             } else {
                 // Fallback if no stream occurred (or single short response)
-                appendMessage(this.ui.historyDiv, request.text, 'ai', request.images, request.thoughts);
+                if (this.app.prompt.isRegenerating) {
+                    // Handle regeneration - insert AI response at the correct position
+                    const regenerateIndex = this.app.prompt.regenerateIndex;
+                    const userMessageIndex = this.app.prompt.regenerateUserMessageIndex;
+
+                    // Insert the new AI response at the correct position in the session
+                    session.messages.splice(regenerateIndex, 0, {
+                        role: 'ai',
+                        text: request.text,
+                        thoughts: request.thoughts,
+                        generatedImages: request.images
+                    });
+
+                    // Re-render the entire history to ensure correct indices
+                    this.ui.clearChatHistory();
+                    session.messages.forEach((msg, index) => {
+                        let attachment = null;
+                        if (msg.role === 'user') attachment = msg.image;
+                        if (msg.role === 'ai') attachment = msg.generatedImages;
+                        appendMessage(this.ui.historyDiv, msg.text, msg.role, attachment, msg.thoughts, index);
+                    });
+
+                    // Clear regeneration state
+                    this.app.prompt.isRegenerating = false;
+                    this.app.prompt.regenerateIndex = null;
+                    this.app.prompt.regenerateUserMessageIndex = null;
+                } else if (this.app.prompt.skipUserMessageForHandler) {
+                    // For edit mode - refresh the entire history
+                    this.ui.clearChatHistory();
+                    session.messages.forEach((msg, index) => {
+                        let attachment = null;
+                        if (msg.role === 'user') attachment = msg.image;
+                        if (msg.role === 'ai') attachment = msg.generatedImages;
+                        appendMessage(this.ui.historyDiv, msg.text, msg.role, attachment, msg.thoughts, index);
+                    });
+                    this.app.prompt.skipUserMessageForHandler = false;
+                } else {
+                    // Normal flow: append message with new index
+                    const messageIndex = session.messages.length - 1;
+                    console.log('[handleGeminiReply] Normal flow - messageIndex:', messageIndex);
+                    appendMessage(this.ui.historyDiv, request.text, 'ai', request.images, request.thoughts, messageIndex);
+                }
             }
         }
     }

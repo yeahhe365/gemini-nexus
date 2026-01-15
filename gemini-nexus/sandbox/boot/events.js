@@ -165,4 +165,24 @@ export function bindAppEvents(app, ui, setResizeRef) {
             if(inputFn) inputFn.focus();
         }
     });
+
+    // Message Action Events
+    document.addEventListener('delete-message', (e) => {
+        if (e.detail && e.detail.messageIndex !== undefined) {
+            app.sessionFlow.handleDeleteMessage(e.detail.messageIndex);
+        }
+    });
+
+    document.addEventListener('edit-message', (e) => {
+        if (e.detail && e.detail.messageIndex !== undefined) {
+            app.sessionFlow.handleEditMessage(e.detail.messageIndex);
+        }
+    });
+
+    document.addEventListener('regenerate-message', (e) => {
+        console.log('📨 Regenerate event received:', e.detail);
+        if (e.detail && e.detail.messageIndex !== undefined) {
+            app.sessionFlow.handleRegenerateMessage(e.detail.messageIndex);
+        }
+    });
 }

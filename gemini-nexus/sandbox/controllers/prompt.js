@@ -11,15 +11,39 @@ export class PromptController {
         this.imageManager = imageManager;
         this.app = appController;
         this.cancellationTimestamp = 0;
+        this.isEditing = false;
+        this.editMessageIndex = null;
+        this.isRegenerating = false;
+        this.regenerateIndex = null;
+        this.regenerateUserMessageIndex = null;
+        this.skipUserMessageForHandler = false;
     }
 
-    async send() {
+    async send(skipUserMessageRender = false, skipUserMessageAdd = false) {
+        console.log('📤 prompt.send() called with skip params:', { skipUserMessageRender, skipUserMessageAdd });
+        console.log('📝 Input value:', this.ui.inputFn.value);
+        console.log('🖼️ Files:', this.imageManager.getFiles());
+
         if (this.app.isGenerating) return;
 
         const text = this.ui.inputFn.value.trim();
         const files = this.imageManager.getFiles();
 
-        if (!text && files.length === 0) return;
+        if (!text && files.length === 0) {
+            console.log('❌ No text or files to send');
+            return;
+        }
+
+        console.log('✅ Proceeding with send, text:', text);
+
+        // Check if we're in edit mode
+        if (this.app && this.app.sessionFlow && this.app.sessionFlow.editingMessageData) {
+            this.isEditing = true;
+            this.editMessageIndex = this.app.sessionFlow.editingMessageData.messageIndex;
+        } else {
+            this.isEditing = false;
+            this.editMessageIndex = null;
+        }
 
         if (!this.sessionManager.currentSessionId) {
             this.sessionManager.createSession();
@@ -34,24 +58,59 @@ export class PromptController {
             if(titleUpdate) this.app.sessionFlow.refreshHistoryUI();
         }
 
-        // Render User Message
         const displayAttachments = files.map(f => f.base64);
-        
-        appendMessage(
-            this.ui.historyDiv, 
-            text, 
-            'user', 
-            displayAttachments.length > 0 ? displayAttachments : null
-        );
-        
-        this.sessionManager.addMessage(currentId, 'user', text, displayAttachments.length > 0 ? displayAttachments : null);
-        
-        saveSessionsToStorage(this.sessionManager.sessions);
-        this.app.sessionFlow.refreshHistoryUI();
+
+        // If editing, delete the message and all subsequent messages
+        if (this.isEditing && this.editMessageIndex !== null) {
+            console.log('[prompt.send] Editing message at index:', this.editMessageIndex, 'session.messages.length before:', session.messages.length);
+            this.sessionManager.deleteMessage(currentId, this.editMessageIndex);
+            console.log('[prompt.send] After deletion, session.messages.length:', session.messages.length);
+
+            // Clear and re-render the chat history without the deleted messages
+            this.ui.clearChatHistory();
+            session.messages.forEach((msg, index) => {
+                let attachment = null;
+                if (msg.role === 'user') attachment = msg.image;
+                if (msg.role === 'ai') attachment = msg.generatedImages;
+                console.log('[prompt.send] Re-rendering remaining message at index:', index, 'role:', msg.role);
+                appendMessage(this.ui.historyDiv, msg.text, msg.role, attachment, msg.thoughts, index);
+            });
+
+            // Cancel edit mode
+            if (this.app && this.app.sessionFlow) {
+                this.app.sessionFlow.cancelEdit();
+            } else {
+                // Clear our local edit state if sessionFlow is not available
+                this.isEditing = false;
+                this.editMessageIndex = null;
+            }
+        }
+
+        // Render User Message if not skipped
+        if (!skipUserMessageRender) {
+            const messageIndex = session.messages.length; // New message will be at this index
+            console.log('[prompt.send] Adding new/edited user message at index:', messageIndex, 'text:', text);
+
+            appendMessage(
+                this.ui.historyDiv,
+                text,
+                'user',
+                displayAttachments.length > 0 ? displayAttachments : null,
+                null,
+                messageIndex
+            );
+        }
+
+        // Add message to session if not skipped
+        if (!skipUserMessageAdd) {
+            this.sessionManager.addMessage(currentId, 'user', text, displayAttachments.length > 0 ? displayAttachments : null);
+            saveSessionsToStorage(this.sessionManager.sessions);
+            this.app.sessionFlow.refreshHistoryUI();
+        }
 
         // Prepare Context & Model
         const selectedModel = this.app.getSelectedModel();
-        
+
         if (session.context) {
              sendToBackground({
                 action: "SET_CONTEXT",
@@ -62,9 +121,12 @@ export class PromptController {
 
         this.ui.resetInput();
         this.imageManager.clearFile();
-        
+
         this.app.isGenerating = true;
         this.ui.setLoading(true);
+
+        // Store the skip params for use in message handler
+        this.skipUserMessageForHandler = skipUserMessageAdd;
 
         const conn = (this.ui && this.ui.settings && this.ui.settings.connectionData) ? this.ui.settings.connectionData : {};
         let activeMcpServer = null;
@@ -86,8 +148,10 @@ export class PromptController {
         const enableMcpTools = conn.mcpEnabled === true &&
             !!(activeMcpServer && activeMcpServer.enabled !== false && activeMcpServer.url && activeMcpServer.url.trim());
 
-        sendToBackground({ 
-            action: "SEND_PROMPT", 
+        console.log('🚀 Sending message to background:', { text, model: selectedModel });
+
+        sendToBackground({
+            action: "SEND_PROMPT",
             text: text,
             files: files, // Send full file objects array
             model: selectedModel,
@@ -101,6 +165,8 @@ export class PromptController {
             mcpEnabledTools: activeMcpServer && Array.isArray(activeMcpServer.enabledTools) ? activeMcpServer.enabledTools : [],
             sessionId: currentId // Important: Pass session ID so background can save history independently
         });
+
+        console.log('✅ Message sent to background');
     }
 
     cancel() {
