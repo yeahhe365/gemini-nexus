@@ -46,77 +46,144 @@ body.layout-wide .msg.ai {
 }
 
 /* --- User Message (Bubble) --- */
-.msg.user { 
-    align-self: flex-end; 
+.msg.user {
+    position: relative !important; /* Ensure positioning context for absolute buttons */
+    z-index: 1;
+    align-self: flex-end;
     background: var(--bg-user-msg);
     color: var(--text-user-msg);
-    padding: 12px 20px; 
-    border-radius: 24px; 
-    max-width: 85%; 
+    padding: 12px 20px;
+    border-radius: 24px;
+    max-width: 85%;
     white-space: pre-wrap;
-    overflow: visible; /* Allow copy button to float outside */
 }
 
-/* User Copy Button - Floating on Hover */
-.msg.user .copy-btn {
-    display: flex;
+/* User Message Actions - Position on the left */
+.user-message-actions {
     position: absolute;
-    left: -38px;
+    left: -120px; /* Position buttons to the left of the message (3 buttons need more space) */
     bottom: 2px;
+    display: flex !important;
+    gap: 4px;
+    opacity: 0;
+    transition: opacity 0.2s cubic-bezier(0.25, 0.8, 0.25, 1);
+    z-index: 10;
+}
+
+.msg.user:hover .user-message-actions {
+    opacity: 1;
+}
+
+/* Ensure user message has proper positioning context */
+.msg.user {
+    position: relative !important;
+    z-index: 1;
+}
+
+/* Individual Action Buttons for User Messages */
+.action-btn {
+    display: flex;
     width: 28px;
     height: 28px;
     background: var(--bg-body);
     border: 1px solid var(--border-color);
     border-radius: 50%;
     color: var(--text-tertiary);
-    opacity: 0;
-    transition: all 0.2s cubic-bezier(0.25, 0.8, 0.25, 1);
     align-items: center;
     justify-content: center;
     padding: 0;
     box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
 
-.msg.user:hover .copy-btn {
-    opacity: 1;
-}
-
-.msg.user .copy-btn:hover {
+.action-btn:hover {
     background: var(--btn-hover);
     color: var(--primary);
     transform: scale(1.1);
     border-color: var(--primary);
 }
 
-.msg.user .copy-btn svg {
+.action-btn svg {
     width: 14px;
     height: 14px;
 }
 
 /* --- AI Message (Clean Text) --- */
-.msg.ai { 
-    align-self: flex-start; 
-    background: transparent; 
-    width: 100%; 
+.msg.ai {
+    position: relative !important;
+    z-index: 1;
+    align-self: flex-start;
+    background: transparent;
+    width: 100%;
     max-width: 100%;
     padding: 0 4px; /* Slight indent */
     margin: 0;
     color: var(--text-primary);
 }
 
-.msg.ai .copy-btn {
+/* AI Message Actions Container */
+.ai-message-actions {
     margin-top: 8px;
-    color: var(--text-tertiary);
+    display: flex;
+    gap: 8px;
     opacity: 0;
     transition: all 0.2s;
-    float: left;
+}
+
+.msg.ai:hover .ai-message-actions {
+    opacity: 1;
+}
+
+/* AI Copy Button - Original position */
+.copy-btn {
+    margin: 0; /* Reset margin */
+    color: var(--text-tertiary);
     background: var(--bg-sidebar);
     padding: 6px;
     border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
 }
 
-.msg.ai:hover .copy-btn { opacity: 1; }
-.msg.ai .copy-btn:hover { color: var(--primary); background: var(--btn-hover); }
+.copy-btn:hover {
+    color: var(--primary);
+    background: var(--btn-hover);
+}
+
+.copy-btn svg {
+    width: 14px;
+    height: 14px;
+}
+
+/* AI Regenerate Button - Next to Copy */
+.regenerate-btn {
+    margin: 0;
+    color: var(--text-tertiary);
+    background: var(--bg-sidebar);
+    padding: 6px;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.regenerate-btn:hover {
+    color: var(--primary);
+    background: var(--btn-hover);
+}
+
+.regenerate-btn svg {
+    width: 14px;
+    height: 14px;
+}
 
 /* --- Thinking Process Styles --- */
 .thoughts-container {

@@ -112,7 +112,7 @@ export class SidebarController {
 
     _renderDOM(sessions) {
         this.listEl.innerHTML = '';
-        
+
         if (sessions.length === 0) {
             const emptyEl = document.createElement('div');
             emptyEl.style.padding = '16px';
@@ -135,11 +135,28 @@ export class SidebarController {
                     this.close();
                 }
             };
-            
+
             const titleSpan = document.createElement('span');
             titleSpan.className = 'history-title';
             titleSpan.textContent = s.title;
-            
+
+            // Action buttons container
+            const actionsDiv = document.createElement('div');
+            actionsDiv.className = 'history-actions';
+
+            // Export button
+            const exportBtn = document.createElement('span');
+            exportBtn.className = 'history-export';
+            exportBtn.innerHTML = '⬇';
+            exportBtn.title = t('exportChat');
+            exportBtn.onclick = (e) => {
+                e.stopPropagation();
+                if (this.itemCallbacks.onExport) {
+                    this.itemCallbacks.onExport(s.id);
+                }
+            };
+
+            // Delete button
             const delBtn = document.createElement('span');
             delBtn.className = 'history-delete';
             delBtn.textContent = '✕';
@@ -151,8 +168,11 @@ export class SidebarController {
                 }
             };
 
+            actionsDiv.appendChild(exportBtn);
+            actionsDiv.appendChild(delBtn);
+
             item.appendChild(titleSpan);
-            item.appendChild(delBtn);
+            item.appendChild(actionsDiv);
             this.listEl.appendChild(item);
         });
     }

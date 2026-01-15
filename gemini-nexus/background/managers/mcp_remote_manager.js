@@ -15,9 +15,16 @@ function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+function normalizeLocalhost(url) {
+  // Chrome extensions have better CORS support for 'localhost' than '127.0.0.1'
+  // Automatically convert 127.0.0.1 to localhost for compatibility
+  if (!url || typeof url !== 'string') return url;
+  return url.replace(/127\.0\.0\.1/g, 'localhost');
+}
+
 function asWsUrl(url) {
   if (!url || typeof url !== 'string') return '';
-  const trimmed = url.trim();
+  const trimmed = normalizeLocalhost(url.trim());
   if (trimmed.startsWith('ws://') || trimmed.startsWith('wss://')) return trimmed;
   if (trimmed.startsWith('http://')) return `ws://${trimmed.slice('http://'.length)}`;
   if (trimmed.startsWith('https://')) return `wss://${trimmed.slice('https://'.length)}`;
@@ -26,7 +33,7 @@ function asWsUrl(url) {
 
 function asHttpUrl(url) {
   if (!url || typeof url !== 'string') return '';
-  const trimmed = url.trim();
+  const trimmed = normalizeLocalhost(url.trim());
   if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) return trimmed;
   return trimmed;
 }

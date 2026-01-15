@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Message Buttons</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .chat-history { max-width: 800px; margin: 0 auto; }
+        .msg { margin-bottom: 20px; animation: fadeIn .3s ease; opacity: 1; }
+        .msg.user {
+            align-self: flex-end;
+            background: #e3f2fd;
+            color: #333;
+            padding: 12px 20px;
+            border-radius: 24px;
+            max-width: 85%;
+            white-space: pre-wrap;
+            position: relative;
+            margin-left: auto;
+        }
+        .msg.ai {
+            align-self: flex-start;
+            background: transparent;
+            width: 100%;
+            max-width: 100%;
+            padding: 0 4px;
+            margin: 0;
+            color: #333;
+        }
+        .copy-btn {
+            margin-top: 8px;
+            color: #666;
+            opacity: 0;
+            transition: all .2s;
+            float: left;
+            background: #f5f5f5;
+            padding: 6px;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+        }
+        .msg.ai:hover .copy-btn { opacity: 1; }
+        .copy-btn:hover { color: #4285f4; background: #e0e0e0; }
+        .action-btn {
+            margin-top: 8px;
+            margin-left: 8px;
+            padding: 6px;
+            border-radius: 8px;
+            float: left;
+            background: #f5f5f5;
+            color: #666;
+            opacity: 0;
+            transition: all .2s;
+            cursor: pointer;
+            border: none;
+        }
+        .msg.ai:hover .action-btn { opacity: 1; }
+        .action-btn:hover { color: #4285f4; background: #e0e0e0; }
+        .message-actions {
+            position: absolute;
+            top: -18px;
+            right: 0;
+            display: flex;
+            gap: 4px;
+            opacity: 0;
+            transition: opacity .2s ease;
+            z-index: 10;
+        }
+        .msg.user:hover .message-actions { opacity: 1; }
+        #chat-history { padding: 20px; }
+    </style>
+</head>
+<body>
+    <h1>Message Button Test</h1>
+    <div id="chat-history" class="chat-history"></div>
+    <button onclick="addUserMessage()">Add User Message</button>
+    <button onclick="addAIMessage()">Add AI Message</button>
+
+    <script>
+        let messageIndex = 0;
+
+        function appendMessage(container, text, role, messageIndex = null) {
+            const div = document.createElement('div');
+            div.className = `msg ${role}`;
+            div.innerHTML = `<div>${text}</div>`;
+
+            // Add copy button for AI messages
+            if (role === 'ai') {
+                const copyBtn = document.createElement('button');
+                copyBtn.className = 'copy-btn';
+                copyBtn.innerHTML = '📋';
+                div.appendChild(copyBtn);
+
+                // Add regenerate button
+                if (messageIndex !== null) {
+                    const regenerateBtn = document.createElement('button');
+                    regenerateBtn.className = 'action-btn regenerate-btn';
+                    regenerateBtn.innerHTML = '🔄';
+                    regenerateBtn.title = 'Regenerate';
+                    div.appendChild(regenerateBtn);
+                }
+            }
+
+            // Add action buttons for user messages
+            if (role === 'user' && messageIndex !== null) {
+                const actionContainer = document.createElement('div');
+                actionContainer.className = 'message-actions';
+
+                const editBtn = document.createElement('button');
+                editBtn.className = 'action-btn edit-btn';
+                editBtn.innerHTML = '✏️';
+                editBtn.title = 'Edit';
+                actionContainer.appendChild(editBtn);
+
+                const deleteBtn = document.createElement('button');
+                deleteBtn.className = 'action-btn delete-btn';
+                deleteBtn.innerHTML = '🗑️';
+                deleteBtn.title = 'Delete';
+                actionContainer.appendChild(deleteBtn);
+
+                div.appendChild(actionContainer);
+            }
+
+            container.appendChild(div);
+            return div;
+        }
+
+        function addUserMessage() {
+            appendMessage(document.getElementById('chat-history'), 'User message ' + messageIndex, 'user', messageIndex);
+            messageIndex++;
+        }
+
+        function addAIMessage() {
+            appendMessage(document.getElementById('chat-history'), 'AI message ' + messageIndex, 'ai', messageIndex);
+            messageIndex++;
+        }
+
+        // Add some test messages
+        addUserMessage();
+        addAIMessage();
+    </script>
+</body>
+</html>

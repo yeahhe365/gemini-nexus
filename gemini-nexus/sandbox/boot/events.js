@@ -6,7 +6,15 @@ import { t } from '../core/i18n.js';
 export function bindAppEvents(app, ui, setResizeRef) {
     // New Chat Buttons
     document.getElementById('new-chat-header-btn').addEventListener('click', () => app.handleNewChat());
-    
+
+    // Export Current Chat Button
+    const exportChatBtn = document.getElementById('export-chat-btn');
+    if (exportChatBtn) {
+        exportChatBtn.addEventListener('click', () => {
+            app.sessionFlow.handleExportCurrentSession();
+        });
+    }
+
     // Tab Switcher Button
     const tabSwitcherBtn = document.getElementById('tab-switcher-btn');
     if (tabSwitcherBtn) {
@@ -155,6 +163,26 @@ export function bindAppEvents(app, ui, setResizeRef) {
         if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'p') {
             e.preventDefault();
             if(inputFn) inputFn.focus();
+        }
+    });
+
+    // Message Action Events
+    document.addEventListener('delete-message', (e) => {
+        if (e.detail && e.detail.messageIndex !== undefined) {
+            app.sessionFlow.handleDeleteMessage(e.detail.messageIndex);
+        }
+    });
+
+    document.addEventListener('edit-message', (e) => {
+        if (e.detail && e.detail.messageIndex !== undefined) {
+            app.sessionFlow.handleEditMessage(e.detail.messageIndex);
+        }
+    });
+
+    document.addEventListener('regenerate-message', (e) => {
+        console.log('📨 Regenerate event received:', e.detail);
+        if (e.detail && e.detail.messageIndex !== undefined) {
+            app.sessionFlow.handleRegenerateMessage(e.detail.messageIndex);
         }
     });
 }

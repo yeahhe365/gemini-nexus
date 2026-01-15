@@ -257,7 +257,15 @@ export class UIMessageHandler {
         }
         
         // --- TAB MANAGEMENT ---
-        
+
+        if (request.action === "OPEN_URL_IN_TAB") {
+            chrome.tabs.create({ url: request.url }).catch(err => {
+                console.error("Failed to open URL:", err);
+            });
+            sendResponse({ status: "opened" });
+            return true;
+        }
+
         if (request.action === "GET_OPEN_TABS") {
             (async () => {
                 const tabs = await chrome.tabs.query({ currentWindow: true });

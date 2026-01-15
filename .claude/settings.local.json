@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run build:*)",
+      "Bash(cat:*)",
+      "Bash(chmod:*)",
+      "Bash(./build-extension.bat)",
+      "Bash(git -C \"D:\\\\dev\\\\mcp\\\\gemini-nexus\" status gemini-nexus/sidepanel/core/frame.js)",
+      "Bash(git -C \"D:\\\\dev\\\\mcp\\\\gemini-nexus\" diff gemini-nexus/sidepanel/core/frame.js)",
+      "Bash(git -C \"D:\\\\dev\\\\mcp\\\\gemini-nexus\" status gemini-nexus/content/pip.js)",
+      "mcp__sequential-thinking__sequentialthinking",
+      "Bash(find:*)",
+      "Bash(git clean:*)"
+    ]
+  }
+}

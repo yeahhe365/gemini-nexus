@@ -177,10 +177,45 @@ body.layout-wide .sidebar-overlay {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    max-width: 190px;
+    max-width: 150px; /* Reduced to make room for action buttons */
     flex: 1;
 }
 
+/* Action buttons container */
+.history-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: 8px;
+    flex-shrink: 0;
+}
+
+/* Export button */
+.history-export {
+    opacity: 0;
+    font-size: 16px;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-secondary);
+    border-radius: 50%;
+    transition: all 0.2s;
+    flex-shrink: 0;
+}
+
+.history-item:hover .history-export { opacity: 1; }
+.history-export:hover {
+    background: #d3e3fd;
+    color: #185abc;
+}
+[data-theme="dark"] .history-export:hover {
+    background: #1e3a5f;
+    color: #aecbfa;
+}
+
+/* Delete button */
 .history-delete {
     opacity: 0;
     font-size: 14px;
@@ -192,7 +227,6 @@ body.layout-wide .sidebar-overlay {
     color: var(--text-secondary);
     border-radius: 50%;
     transition: all 0.2s;
-    margin-left: 8px;
     flex-shrink: 0;
 }
 

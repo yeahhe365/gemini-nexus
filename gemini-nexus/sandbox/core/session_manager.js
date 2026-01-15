@@ -86,6 +86,28 @@ export class SessionManager {
         return false;
     }
 
+    deleteMessage(id, messageIndex) {
+        const session = this.sessions.find(s => s.id === id);
+        if (session && session.messages[messageIndex]) {
+            const message = session.messages[messageIndex];
+
+            // If it's a user message, also delete the corresponding AI response
+            if (message.role === 'user' && session.messages[messageIndex + 1] &&
+                session.messages[messageIndex + 1].role === 'ai') {
+                session.messages.splice(messageIndex, 2);
+            } else if (message.role === 'ai' && messageIndex > 0 &&
+                       session.messages[messageIndex - 1].role === 'user') {
+                // If it's an AI message, also delete the user message before it
+                session.messages.splice(messageIndex - 1, 2);
+            } else {
+                // Delete just this message
+                session.messages.splice(messageIndex, 1);
+            }
+
+            session.timestamp = Date.now();
+        }
+    }
+
     updateContext(id, context) {
         const session = this.sessions.find(s => s.id === id);
         if (session) {
