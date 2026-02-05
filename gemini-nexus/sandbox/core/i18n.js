@@ -127,6 +127,7 @@ export const translations = {
         "noTabsFound": "No open tabs found.",
         "lockTab": "Lock Tab",
         "unlockTab": "Unlock Tab (Auto-follow Active)",
+        "htmlPreview": "HTML Preview",
     },
     zh: {
         "mcpTools": "外部 MCP 工具",
@@ -253,6 +254,7 @@ export const translations = {
         "noTabsFound": "未找到打开的标签页。",
         "lockTab": "锁定标签页",
         "unlockTab": "解锁 (自动跟随活动标签页)",
+        "htmlPreview": "HTML 预览",
     }
 };
 
