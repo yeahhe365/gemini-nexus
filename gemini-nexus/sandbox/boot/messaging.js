@@ -1,5 +1,6 @@
 
 // sandbox/boot/messaging.js
+import { updateShortcuts as updateEventShortcuts } from './events.js';
 
 export class AppMessageBridge {
     constructor() {
@@ -49,6 +50,7 @@ export class AppMessageBridge {
     dispatch(action, payload, event) {
         if (action === 'RESTORE_SHORTCUTS') {
             this.ui.updateShortcuts(payload);
+            updateEventShortcuts(payload); // Update event handlers
             return;
         }
         if (action === 'RESTORE_THEME') {

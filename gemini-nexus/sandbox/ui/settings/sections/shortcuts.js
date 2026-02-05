@@ -13,7 +13,9 @@ export class ShortcutsSection {
         this.elements = {
             inputQuickAsk: get('shortcut-quick-ask'),
             inputOpenPanel: get('shortcut-open-panel'),
-            inputBrowserControl: get('shortcut-browser-control')
+            inputBrowserControl: get('shortcut-browser-control'),
+            inputFocusInput: get('shortcut-focus-input'),
+            inputSwitchModel: get('shortcut-switch-model')
         };
     }
 
@@ -21,6 +23,8 @@ export class ShortcutsSection {
         this.setupShortcutInput(this.elements.inputQuickAsk);
         this.setupShortcutInput(this.elements.inputOpenPanel);
         this.setupShortcutInput(this.elements.inputBrowserControl);
+        this.setupShortcutInput(this.elements.inputFocusInput);
+        this.setupShortcutInput(this.elements.inputSwitchModel);
     }
 
     setupShortcutInput(inputEl) {
@@ -44,17 +48,21 @@ export class ShortcutsSection {
     }
 
     setData(shortcuts) {
-        if (this.elements.inputQuickAsk) this.elements.inputQuickAsk.value = shortcuts.quickAsk;
-        if (this.elements.inputOpenPanel) this.elements.inputOpenPanel.value = shortcuts.openPanel;
+        if (this.elements.inputQuickAsk) this.elements.inputQuickAsk.value = shortcuts.quickAsk || "Ctrl+G";
+        if (this.elements.inputOpenPanel) this.elements.inputOpenPanel.value = shortcuts.openPanel || "Alt+S";
         if (this.elements.inputBrowserControl) this.elements.inputBrowserControl.value = shortcuts.browserControl || "Ctrl+B";
+        if (this.elements.inputFocusInput) this.elements.inputFocusInput.value = shortcuts.focusInput || "Ctrl+P";
+        if (this.elements.inputSwitchModel) this.elements.inputSwitchModel.value = shortcuts.switchModel || "Tab";
     }
 
     getData() {
-        const { inputQuickAsk, inputOpenPanel, inputBrowserControl } = this.elements;
+        const { inputQuickAsk, inputOpenPanel, inputBrowserControl, inputFocusInput, inputSwitchModel } = this.elements;
         return {
-            quickAsk: inputQuickAsk ? inputQuickAsk.value : null,
-            openPanel: inputOpenPanel ? inputOpenPanel.value : null,
-            browserControl: inputBrowserControl ? inputBrowserControl.value : "Ctrl+B"
+            quickAsk: inputQuickAsk ? inputQuickAsk.value : "Ctrl+G",
+            openPanel: inputOpenPanel ? inputOpenPanel.value : "Alt+S",
+            browserControl: inputBrowserControl ? inputBrowserControl.value : "Ctrl+B",
+            focusInput: inputFocusInput ? inputFocusInput.value : "Ctrl+P",
+            switchModel: inputSwitchModel ? inputSwitchModel.value : "Tab"
         };
     }
 }

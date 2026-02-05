@@ -2,6 +2,38 @@
 // sandbox/boot/events.js
 import { sendToBackground } from '../../lib/messaging.js';
 import { t } from '../core/i18n.js';
+import { DEFAULT_SHORTCUTS } from '../../lib/constants.js';
+
+// Module-level shortcut config
+let currentShortcuts = { ...DEFAULT_SHORTCUTS };
+
+export function updateShortcuts(shortcuts) {
+    if (shortcuts) {
+        currentShortcuts = { ...DEFAULT_SHORTCUTS, ...shortcuts };
+    }
+}
+
+function matchShortcut(event, shortcutString) {
+    if (!shortcutString) return false;
+
+    const parts = shortcutString.split('+').map(p => p.trim().toLowerCase());
+    const key = event.key.toLowerCase();
+
+    const hasCtrl = parts.includes('ctrl');
+    const hasAlt = parts.includes('alt');
+    const hasShift = parts.includes('shift');
+    const hasMeta = parts.includes('meta') || parts.includes('command');
+
+    if (event.ctrlKey !== hasCtrl) return false;
+    if (event.altKey !== hasAlt) return false;
+    if (event.shiftKey !== hasShift) return false;
+    if (event.metaKey !== hasMeta) return false;
+
+    const mainKeys = parts.filter(p => !['ctrl','alt','shift','meta','command'].includes(p));
+    if (mainKeys.length !== 1) return false;
+
+    return key === mainKeys[0];
+}
 
 export function bindAppEvents(app, ui, setResizeRef) {
     // New Chat Buttons
@@ -124,8 +156,8 @@ export function bindAppEvents(app, ui, setResizeRef) {
 
     if (inputFn && sendBtn) {
         inputFn.addEventListener('keydown', (e) => {
-            // Tab Cycle Models
-            if (e.key === 'Tab') {
+            // Switch Model shortcut (configurable, default: Tab)
+            if (matchShortcut(e, currentShortcuts.switchModel)) {
                 e.preventDefault();
                 if (modelSelect) {
                     const direction = e.shiftKey ? -1 : 1;
@@ -152,7 +184,8 @@ export function bindAppEvents(app, ui, setResizeRef) {
     }
 
     document.addEventListener('keydown', (e) => {
-        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'p') {
+        // Focus Input shortcut (configurable, default: Ctrl+P)
+        if (matchShortcut(e, currentShortcuts.focusInput)) {
             e.preventDefault();
             if(inputFn) inputFn.focus();
         }

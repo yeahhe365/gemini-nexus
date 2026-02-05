@@ -21,12 +21,12 @@ export const ShortcutsSettingsTemplate = `
 
     <div class="shortcut-row">
         <label data-i18n="shortcutFocusInput">Focus Input</label>
-        <input type="text" class="shortcut-input" readonly value="Ctrl+P">
+        <input type="text" id="shortcut-focus-input" class="shortcut-input" readonly value="Ctrl+P">
     </div>
 
     <div class="shortcut-row">
         <label data-i18n="shortcutSwitchModel">Switch Model</label>
-        <input type="text" class="shortcut-input" readonly value="Tab">
+        <input type="text" id="shortcut-switch-model" class="shortcut-input" readonly value="Tab">
     </div>
 
     <div class="settings-actions">
