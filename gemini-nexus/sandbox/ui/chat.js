@@ -23,30 +23,108 @@ export class ChatController {
             });
         }
 
-        // Code Block Copy Delegation
+        // Code Block Copy/Preview Delegation
         if (this.historyDiv) {
             this.historyDiv.addEventListener('click', async (e) => {
-                const btn = e.target.closest('.copy-code-btn');
-                if (!btn) return;
-                
-                const wrapper = btn.closest('.code-block-wrapper');
-                const codeEl = wrapper.querySelector('code');
-                if (!codeEl) return;
-                
-                try {
-                    await copyToClipboard(codeEl.textContent);
-                    
-                    // Visual Feedback
-                    const originalHtml = btn.innerHTML;
-                    btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4caf50" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg><span>Copied</span>`;
-                    
-                    setTimeout(() => {
-                        btn.innerHTML = originalHtml;
-                    }, 2000);
-                } catch (err) {
-                    console.error('Failed to copy code', err);
+                // Handle Copy Button
+                const copyBtn = e.target.closest('.copy-code-btn');
+                if (copyBtn) {
+                    const wrapper = copyBtn.closest('.code-block-wrapper');
+                    const codeEl = wrapper.querySelector('code');
+                    if (!codeEl) return;
+
+                    try {
+                        await copyToClipboard(codeEl.textContent);
+
+                        // Visual Feedback
+                        const originalHtml = copyBtn.innerHTML;
+                        copyBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4caf50" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg><span>Copied</span>`;
+
+                        setTimeout(() => {
+                            copyBtn.innerHTML = originalHtml;
+                        }, 2000);
+                    } catch (err) {
+                        console.error('Failed to copy code', err);
+                    }
+                    return;
+                }
+
+                // Handle Preview Button
+                const previewBtn = e.target.closest('.preview-code-btn');
+                if (previewBtn) {
+                    const wrapper = previewBtn.closest('.code-block-wrapper');
+                    const codeEl = wrapper?.querySelector('code');
+                    if (codeEl) {
+                        this.openHtmlPreview(codeEl.textContent);
+                    }
                 }
             });
+        }
+    }
+
+    // Open HTML Preview Drawer
+    openHtmlPreview(htmlContent) {
+        // Remove existing drawer if any
+        this.closeHtmlPreview();
+
+        // Create overlay
+        const overlay = document.createElement('div');
+        overlay.className = 'html-preview-overlay';
+
+        // Create drawer
+        const drawer = document.createElement('div');
+        drawer.className = 'html-preview-drawer';
+        drawer.innerHTML = `
+            <div class="html-preview-drawer-header">
+                <h3>${t('htmlPreview')}</h3>
+                <button class="html-preview-drawer-close" aria-label="Close">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+            <div class="html-preview-drawer-content">
+                <iframe sandbox="allow-scripts"></iframe>
+            </div>
+        `;
+
+        document.body.appendChild(overlay);
+        document.body.appendChild(drawer);
+
+        // Set iframe content
+        const iframe = drawer.querySelector('iframe');
+        iframe.srcdoc = htmlContent;
+
+        // Close button handler
+        drawer.querySelector('.html-preview-drawer-close').addEventListener('click', () => {
+            this.closeHtmlPreview();
+        });
+
+        // Overlay click to close (delayed to avoid same-click closure)
+        setTimeout(() => {
+            overlay.addEventListener('click', () => this.closeHtmlPreview());
+        }, 50);
+
+        // Trigger animation after DOM update
+        setTimeout(() => {
+            overlay.classList.add('open');
+            drawer.classList.add('open');
+        }, 10);
+    }
+
+    // Close HTML Preview Drawer
+    closeHtmlPreview() {
+        const overlay = document.querySelector('.html-preview-overlay');
+        const drawer = document.querySelector('.html-preview-drawer');
+
+        if (overlay) {
+            overlay.classList.remove('open');
+            setTimeout(() => overlay.remove(), 300);
+        }
+        if (drawer) {
+            drawer.classList.remove('open');
+            setTimeout(() => drawer.remove(), 300);
         }
     }
 

@@ -2,6 +2,38 @@
 // sandbox/boot/events.js
 import { sendToBackground } from '../../lib/messaging.js';
 import { t } from '../core/i18n.js';
+import { DEFAULT_SHORTCUTS } from '../../lib/constants.js';
+
+// Module-level shortcut config
+let currentShortcuts = { ...DEFAULT_SHORTCUTS };
+
+export function updateShortcuts(shortcuts) {
+    if (shortcuts) {
+        currentShortcuts = { ...DEFAULT_SHORTCUTS, ...shortcuts };
+    }
+}
+
+function matchShortcut(event, shortcutString) {
+    if (!shortcutString) return false;
+
+    const parts = shortcutString.split('+').map(p => p.trim().toLowerCase());
+    const key = event.key.toLowerCase();
+
+    const hasCtrl = parts.includes('ctrl');
+    const hasAlt = parts.includes('alt');
+    const hasShift = parts.includes('shift');
+    const hasMeta = parts.includes('meta') || parts.includes('command');
+
+    if (event.ctrlKey !== hasCtrl) return false;
+    if (event.altKey !== hasAlt) return false;
+    if (event.shiftKey !== hasShift) return false;
+    if (event.metaKey !== hasMeta) return false;
+
+    const mainKeys = parts.filter(p => !['ctrl','alt','shift','meta','command'].includes(p));
+    if (mainKeys.length !== 1) return false;
+
+    return key === mainKeys[0];
+}
 
 export function bindAppEvents(app, ui, setResizeRef) {
     // New Chat Buttons
@@ -25,14 +57,63 @@ export function bindAppEvents(app, ui, setResizeRef) {
     const toolsRow = document.getElementById('tools-row');
     const scrollLeftBtn = document.getElementById('tools-scroll-left');
     const scrollRightBtn = document.getElementById('tools-scroll-right');
+    const toolsContainer = toolsRow ? toolsRow.closest('.tools-container') : null;
+
+    const SCROLL_STEP = 150;
+    const EPSILON = 2;
+
+    const updateToolsScrollState = () => {
+        if (!toolsRow || !toolsContainer) return;
+        const { scrollLeft, scrollWidth, clientWidth } = toolsRow;
+        const style = window.getComputedStyle(toolsRow);
+        const paddingLeft = parseFloat(style.paddingLeft) || 0;
+        const paddingRight = parseFloat(style.paddingRight) || 0;
+
+        const maxScrollLeft = scrollWidth - clientWidth;
+        const hasOverflow = maxScrollLeft > EPSILON;
+        const canScrollLeft = scrollLeft > paddingLeft + EPSILON;
+        const canScrollRight = scrollLeft + clientWidth < scrollWidth - paddingRight - EPSILON;
+
+        toolsContainer.classList.toggle('has-overflow', hasOverflow);
+        toolsContainer.classList.toggle('can-scroll-left', hasOverflow && canScrollLeft);
+        toolsContainer.classList.toggle('can-scroll-right', hasOverflow && canScrollRight);
+    };
+
+    const scheduleToolsScrollUpdate = (() => {
+        let rafId = 0;
+        return () => {
+            if (rafId) return;
+            rafId = requestAnimationFrame(() => {
+                rafId = 0;
+                updateToolsScrollState();
+            });
+        };
+    })();
 
     if (toolsRow && scrollLeftBtn && scrollRightBtn) {
         scrollLeftBtn.addEventListener('click', () => {
-            toolsRow.scrollBy({ left: -150, behavior: 'smooth' });
+            toolsRow.scrollBy({ left: -SCROLL_STEP, behavior: 'smooth' });
         });
         scrollRightBtn.addEventListener('click', () => {
-            toolsRow.scrollBy({ left: 150, behavior: 'smooth' });
+            toolsRow.scrollBy({ left: SCROLL_STEP, behavior: 'smooth' });
         });
+
+        toolsRow.addEventListener('scroll', scheduleToolsScrollUpdate, { passive: true });
+        window.addEventListener('resize', scheduleToolsScrollUpdate);
+
+        if (typeof ResizeObserver !== 'undefined') {
+            const resizeObserver = new ResizeObserver(scheduleToolsScrollUpdate);
+            resizeObserver.observe(toolsRow);
+        }
+
+        if (typeof MutationObserver !== 'undefined') {
+            const mutationObserver = new MutationObserver(scheduleToolsScrollUpdate);
+            mutationObserver.observe(toolsRow, { childList: true, subtree: true, characterData: true });
+        }
+
+        // Initial state after layout settles.
+        setTimeout(scheduleToolsScrollUpdate, 0);
+        setTimeout(scheduleToolsScrollUpdate, 100);
     }
 
     // Tools
@@ -124,8 +205,8 @@ export function bindAppEvents(app, ui, setResizeRef) {
 
     if (inputFn && sendBtn) {
         inputFn.addEventListener('keydown', (e) => {
-            // Tab Cycle Models
-            if (e.key === 'Tab') {
+            // Switch Model shortcut (configurable, default: Tab)
+            if (matchShortcut(e, currentShortcuts.switchModel)) {
                 e.preventDefault();
                 if (modelSelect) {
                     const direction = e.shiftKey ? -1 : 1;
@@ -152,7 +233,8 @@ export function bindAppEvents(app, ui, setResizeRef) {
     }
 
     document.addEventListener('keydown', (e) => {
-        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'p') {
+        // Focus Input shortcut (configurable, default: Ctrl+P)
+        if (matchShortcut(e, currentShortcuts.focusInput)) {
             e.preventDefault();
             if(inputFn) inputFn.focus();
         }

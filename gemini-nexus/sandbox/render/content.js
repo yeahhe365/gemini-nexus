@@ -6,6 +6,11 @@ import { transformMarkdown } from './pipeline.js';
 export function renderContent(contentDiv, text, role) {
     // Render Markdown and Math for AI responses
     if (role === 'ai') {
+        if (typeof marked === 'undefined') {
+            // Avoid rendering raw HTML before markdown is ready.
+            contentDiv.textContent = text || '';
+            return;
+        }
         
         // Use shared pipeline
         const html = transformMarkdown(text);
