@@ -25,11 +25,6 @@ body.layout-wide .footer {
     padding-left: 300px; /* Sidebar width + padding */
 }
 
-/* Hide unsupported buttons in wide (full-page) mode */
-body.layout-wide .tool-btn.context-aware {
-    display: none !important;
-}
-
 body.layout-wide .input-wrapper {
     margin: 0 auto;
 }
@@ -107,7 +102,13 @@ body.layout-wide .tools-container {
     box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 }
 
-.tools-container:hover .scroll-nav-btn {
+.tools-container.has-overflow:hover .scroll-nav-btn {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.tools-container.has-overflow.can-scroll-left:hover .scroll-nav-btn.left,
+.tools-container.has-overflow.can-scroll-right:hover .scroll-nav-btn.right {
     opacity: 1;
     transform: translateY(-50%) scale(1);
     pointer-events: auto;
@@ -142,6 +143,14 @@ body.layout-wide .tools-container {
     white-space: nowrap;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none; /* Firefox */
+}
+
+.tools-container.has-overflow.can-scroll-left .tools-row {
+    padding-left: 32px;
+}
+
+.tools-container.has-overflow.can-scroll-right .tools-row {
+    padding-right: 32px;
 }
 .tools-row::-webkit-scrollbar {
     display: none; /* Chrome/Safari */

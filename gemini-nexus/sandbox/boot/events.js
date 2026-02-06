@@ -57,14 +57,63 @@ export function bindAppEvents(app, ui, setResizeRef) {
     const toolsRow = document.getElementById('tools-row');
     const scrollLeftBtn = document.getElementById('tools-scroll-left');
     const scrollRightBtn = document.getElementById('tools-scroll-right');
+    const toolsContainer = toolsRow ? toolsRow.closest('.tools-container') : null;
+
+    const SCROLL_STEP = 150;
+    const EPSILON = 2;
+
+    const updateToolsScrollState = () => {
+        if (!toolsRow || !toolsContainer) return;
+        const { scrollLeft, scrollWidth, clientWidth } = toolsRow;
+        const style = window.getComputedStyle(toolsRow);
+        const paddingLeft = parseFloat(style.paddingLeft) || 0;
+        const paddingRight = parseFloat(style.paddingRight) || 0;
+
+        const maxScrollLeft = scrollWidth - clientWidth;
+        const hasOverflow = maxScrollLeft > EPSILON;
+        const canScrollLeft = scrollLeft > paddingLeft + EPSILON;
+        const canScrollRight = scrollLeft + clientWidth < scrollWidth - paddingRight - EPSILON;
+
+        toolsContainer.classList.toggle('has-overflow', hasOverflow);
+        toolsContainer.classList.toggle('can-scroll-left', hasOverflow && canScrollLeft);
+        toolsContainer.classList.toggle('can-scroll-right', hasOverflow && canScrollRight);
+    };
+
+    const scheduleToolsScrollUpdate = (() => {
+        let rafId = 0;
+        return () => {
+            if (rafId) return;
+            rafId = requestAnimationFrame(() => {
+                rafId = 0;
+                updateToolsScrollState();
+            });
+        };
+    })();
 
     if (toolsRow && scrollLeftBtn && scrollRightBtn) {
         scrollLeftBtn.addEventListener('click', () => {
-            toolsRow.scrollBy({ left: -150, behavior: 'smooth' });
+            toolsRow.scrollBy({ left: -SCROLL_STEP, behavior: 'smooth' });
         });
         scrollRightBtn.addEventListener('click', () => {
-            toolsRow.scrollBy({ left: 150, behavior: 'smooth' });
+            toolsRow.scrollBy({ left: SCROLL_STEP, behavior: 'smooth' });
         });
+
+        toolsRow.addEventListener('scroll', scheduleToolsScrollUpdate, { passive: true });
+        window.addEventListener('resize', scheduleToolsScrollUpdate);
+
+        if (typeof ResizeObserver !== 'undefined') {
+            const resizeObserver = new ResizeObserver(scheduleToolsScrollUpdate);
+            resizeObserver.observe(toolsRow);
+        }
+
+        if (typeof MutationObserver !== 'undefined') {
+            const mutationObserver = new MutationObserver(scheduleToolsScrollUpdate);
+            mutationObserver.observe(toolsRow, { childList: true, subtree: true, characterData: true });
+        }
+
+        // Initial state after layout settles.
+        setTimeout(scheduleToolsScrollUpdate, 0);
+        setTimeout(scheduleToolsScrollUpdate, 100);
     }
 
     // Tools
