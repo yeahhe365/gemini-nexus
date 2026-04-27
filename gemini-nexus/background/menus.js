@@ -20,45 +20,64 @@ export function setupContextMenus(imageHandler) {
             snip: isZh ? "区域截图 (Snip)" : "Snip (Capture Area)"
         };
 
-        chrome.contextMenus.create({
+        const parentMenu = {
             id: "gemini-nexus-parent",
             title: titles.main,
             contexts: ["all"]
-        });
+        };
 
-        chrome.contextMenus.create({
-            id: "menu-ask",
-            parentId: "gemini-nexus-parent",
-            title: titles.ask,
-            contexts: ["all"]
-        });
+        const childMenus = [
+            {
+                id: "menu-ask",
+                parentId: "gemini-nexus-parent",
+                title: titles.ask,
+                contexts: ["all"]
+            },
+            {
+                id: "menu-page-chat",
+                parentId: "gemini-nexus-parent",
+                title: titles.pageChat,
+                contexts: ["all"]
+            },
+            {
+                id: "menu-ocr",
+                parentId: "gemini-nexus-parent",
+                title: titles.ocr,
+                contexts: ["all"]
+            },
+            {
+                id: "menu-screenshot-translate",
+                parentId: "gemini-nexus-parent",
+                title: titles.screenshotTranslate,
+                contexts: ["all"]
+            },
+            {
+                id: "menu-snip",
+                parentId: "gemini-nexus-parent",
+                title: titles.snip,
+                contexts: ["all"]
+            }
+        ];
 
-        chrome.contextMenus.create({
-            id: "menu-page-chat",
-            parentId: "gemini-nexus-parent",
-            title: titles.pageChat,
-            contexts: ["all"]
-        });
+        const createMenu = (item, onDone = () => {}) => {
+            chrome.contextMenus.create(item, () => {
+                if (chrome.runtime.lastError) {
+                    console.warn(`Failed to create context menu ${item.id}:`, chrome.runtime.lastError.message);
+                    return;
+                }
+                onDone();
+            });
+        };
 
-        chrome.contextMenus.create({
-            id: "menu-ocr",
-            parentId: "gemini-nexus-parent",
-            title: titles.ocr,
-            contexts: ["all"]
-        });
+        chrome.contextMenus.removeAll(() => {
+            if (chrome.runtime.lastError) {
+                console.warn("Failed to reset context menus:", chrome.runtime.lastError.message);
+                return;
+            }
 
-        chrome.contextMenus.create({
-            id: "menu-screenshot-translate",
-            parentId: "gemini-nexus-parent",
-            title: titles.screenshotTranslate,
-            contexts: ["all"]
-        });
-
-        chrome.contextMenus.create({
-            id: "menu-snip",
-            parentId: "gemini-nexus-parent",
-            title: titles.snip,
-            contexts: ["all"]
+            createMenu(parentMenu, () => {
+                childMenus.forEach(item => createMenu(item));
+            });
         });
     });
 
