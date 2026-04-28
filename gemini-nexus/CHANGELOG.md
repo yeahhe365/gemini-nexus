@@ -1,5 +1,11 @@
 # Changelog
 
+## v4.2.18 - 2026-04-28
+
+- 为 OpenAI 兼容 API 渠道新增独立 Thinking Level 设置，可选择 minimal、low、medium、high。
+- OpenAI 兼容 API 请求会将所选思考强度作为 `reasoning_effort` 发送，并与 Gemini API 的 Thinking Level 设置分开保存。
+- 上下文摘要压缩请求同步使用 OpenAI 渠道的 Thinking Level 设置，保持普通聊天和压缩链路一致。
+
 ## v4.2.17 - 2026-04-28
 
 - 修复 API 渠道上下文自动压缩后仍携带完整历史导致下一轮重复触发压缩的问题。
