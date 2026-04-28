@@ -81,6 +81,7 @@ export class PromptHandler {
                 const buildResult = await this.builder.build(request);
                 const systemInstruction = buildResult.systemInstruction;
                 let currentPromptText = buildResult.userPrompt;
+                let currentHistoryText = request.text;
                 
                 let currentFiles = request.files;
                 
@@ -99,6 +100,7 @@ export class PromptHandler {
                     const result = await this.sessionManager.handleSendPrompt({
                         ...request,
                         text: currentPromptText,
+                        historyPromptText: currentHistoryText,
                         systemInstruction: systemInstruction, // Pass system instruction
                         files: currentFiles
                     }, onUpdate);
@@ -180,6 +182,7 @@ export class PromptHandler {
                             
                             let historyImages = toolResult.files ? toolResult.files.map(f => f.base64) : null;
                             await appendUserMessage(request.sessionId, userMsg, historyImages);
+                            currentHistoryText = userMsg;
                         }
                         
                         // Update UI status

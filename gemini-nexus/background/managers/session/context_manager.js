@@ -9,10 +9,12 @@ const MIN_RECENT_TURNS = 1;
 const MAX_RECENT_TURNS = 50;
 const MAX_SUMMARY_MESSAGE_CHARS = 4000;
 const MAX_SUMMARY_TRANSCRIPT_CHARS = 60000;
+const HIDDEN_COMPRESSED_MESSAGE_ROLE = 'user';
+const HIDDEN_COMPRESSED_MESSAGE_PREFIX = '[Hidden compressed conversation history]\n';
 
-const SUMMARY_SYSTEM_PROMPT = `You maintain a compact conversation memory for Gemini Nexus.
+const COMPRESSION_SYSTEM_PROMPT = `You maintain a compact hidden conversation history message for Gemini Nexus.
 
-Update the running summary using the previous summary and the new conversation segment.
+Rewrite the supplied hidden compressed history message and conversation segment into one updated hidden history message.
 
 Keep durable information only:
 - user goals, requirements, preferences, and constraints
@@ -21,7 +23,7 @@ Keep durable information only:
 - unresolved tasks or follow-up items
 
 Discard small talk, duplicate details, transient wording, and anything already obsolete.
-Return only the updated summary. Use the user's language when possible.`;
+Return only the updated hidden history message. Use the user's language when possible.`;
 
 function normalizeContextMode(mode) {
     return mode === 'recent' ? 'recent' : DEFAULT_CONTEXT_MODE;
@@ -47,6 +49,21 @@ function getRecentCutoff(messages, recentTurns) {
     }
 
     return 0;
+}
+
+function countUserTurns(messages) {
+    if (!Array.isArray(messages)) return 0;
+    return messages.reduce((count, message) => message?.role === 'user' ? count + 1 : count, 0);
+}
+
+function hasRecentTurnThreshold(messages, recentTurns) {
+    return countUserTurns(messages) >= recentTurns;
+}
+
+function getSummaryBoundary(summary, historyLength) {
+    if (!summary?.text || !Number.isInteger(summary.sourceMessageCount)) return 0;
+    if (summary.sourceMessageCount <= 0 || summary.sourceMessageCount > historyLength) return 0;
+    return summary.sourceMessageCount;
 }
 
 function compactText(text) {
@@ -88,27 +105,35 @@ function formatMessagesForSummary(messages) {
     return lines.join('\n\n');
 }
 
-function buildSummaryPrompt(previousSummary, messages) {
-    const prior = previousSummary?.trim() || 'None';
+function normalizeCompressedMessageText(text) {
+    let value = String(text || '').trim();
+    while (value.startsWith(HIDDEN_COMPRESSED_MESSAGE_PREFIX.trim())) {
+        value = value.slice(HIDDEN_COMPRESSED_MESSAGE_PREFIX.trim().length).trim();
+    }
+    return value;
+}
+
+function buildHiddenCompressedMessage(text) {
+    const value = normalizeCompressedMessageText(text);
+    return {
+        role: HIDDEN_COMPRESSED_MESSAGE_ROLE,
+        text: `${HIDDEN_COMPRESSED_MESSAGE_PREFIX}${value}`
+    };
+}
+
+function buildCompressionPrompt(messages) {
     const transcript = formatMessagesForSummary(messages);
 
-    return `Previous summary:\n${prior}\n\nNew conversation segment:\n${transcript}\n\nUpdated summary:`;
+    return `Conversation history to compress:\n${transcript}\n\nUpdated hidden history message:`;
 }
 
-function appendSummaryToSystemInstruction(systemInstruction, summary) {
-    if (!summary) return systemInstruction || '';
-
-    const block = `[Conversation Summary]\n${summary}`;
-    return systemInstruction ? `${systemInstruction}\n\n${block}` : block;
-}
-
-async function generateSummary(summaryPrompt, settings, signal) {
+async function generateCompressedMessage(compressionPrompt, settings, signal) {
     const noop = () => {};
 
     if (settings.provider === 'official') {
         const response = await sendOfficialMessage(
-            summaryPrompt,
-            SUMMARY_SYSTEM_PROMPT,
+            compressionPrompt,
+            COMPRESSION_SYSTEM_PROMPT,
             [],
             {
                 baseUrl: settings.officialBaseUrl,
@@ -127,8 +152,8 @@ async function generateSummary(summaryPrompt, settings, signal) {
 
     if (settings.provider === 'openai') {
         const response = await sendOpenAIMessage(
-            summaryPrompt,
-            SUMMARY_SYSTEM_PROMPT,
+            compressionPrompt,
+            COMPRESSION_SYSTEM_PROMPT,
             [],
             {
                 baseUrl: settings.openaiBaseUrl,
@@ -145,39 +170,40 @@ async function generateSummary(summaryPrompt, settings, signal) {
     return '';
 }
 
-async function resolveSummary(sessionId, history, cutoff, settings, signal, onStatus) {
-    const existing = await getSessionContextSummary(sessionId);
-    if (existing?.text && existing.sourceMessageCount === cutoff) {
-        return existing.text;
+async function resolveCompressedMessage(sessionId, messagesToCompress, sourceMessageCount, settings, signal, onStatus, existingSummary = null) {
+    const existing = existingSummary || await getSessionContextSummary(sessionId);
+    if (existing?.text && existing.sourceMessageCount === sourceMessageCount) {
+        const normalizedText = normalizeCompressedMessageText(existing.text);
+        if (sessionId && normalizedText !== existing.text) {
+            await updateSessionContextSummary(sessionId, {
+                ...existing,
+                text: normalizedText
+            });
+        }
+        return normalizedText;
     }
 
-    const canIncrement = existing?.text
-        && Number.isInteger(existing.sourceMessageCount)
-        && existing.sourceMessageCount > 0
-        && existing.sourceMessageCount < cutoff;
+    if (!Array.isArray(messagesToCompress) || messagesToCompress.length === 0) {
+        return existing?.text || '';
+    }
 
-    const previousSummary = canIncrement ? existing.text : '';
-    const startIndex = canIncrement ? existing.sourceMessageCount : 0;
-    const messagesToSummarize = history.slice(startIndex, cutoff);
-    if (messagesToSummarize.length === 0) return previousSummary;
-
-    const summaryPrompt = buildSummaryPrompt(previousSummary, messagesToSummarize);
+    const compressionPrompt = buildCompressionPrompt(messagesToCompress);
     onStatus?.('compressing', {
         recentTurns: normalizeRecentTurns(settings.contextRecentTurns)
     });
 
-    const text = (await generateSummary(summaryPrompt, settings, signal) || '').trim();
+    const text = normalizeCompressedMessageText(await generateCompressedMessage(compressionPrompt, settings, signal));
     if (!text) {
         onStatus?.('compression_failed', {
             recentTurns: normalizeRecentTurns(settings.contextRecentTurns)
         });
-        return previousSummary;
+        throw new Error('Compression returned an empty response.');
     }
 
     if (sessionId) {
         await updateSessionContextSummary(sessionId, {
             text,
-            sourceMessageCount: cutoff,
+            sourceMessageCount,
             updatedAt: Date.now()
         });
     }
@@ -199,39 +225,75 @@ export async function prepareManagedContext(request, settings, history, signal, 
     }
 
     const recentTurns = normalizeRecentTurns(settings.contextRecentTurns);
-    const cutoff = getRecentCutoff(sourceHistory, recentTurns);
+    const mode = normalizeContextMode(settings.contextMode);
 
-    if (cutoff <= 0) {
+    if (mode === 'recent') {
+        const cutoff = getRecentCutoff(sourceHistory, recentTurns);
+        const recentHistory = cutoff > 0 ? sourceHistory.slice(cutoff) : sourceHistory;
+        return {
+            history: recentHistory,
+            systemInstruction: request.systemInstruction || ''
+        };
+    }
+
+    const existingSummary = await getSessionContextSummary(request.sessionId);
+    const existingBoundary = getSummaryBoundary(existingSummary, sourceHistory.length);
+
+    if (existingBoundary > 0) {
+        const tailHistory = sourceHistory.slice(existingBoundary);
+        const hiddenHistory = buildHiddenCompressedMessage(existingSummary.text);
+
+        if (!hasRecentTurnThreshold(tailHistory, recentTurns)) {
+            return {
+                history: [hiddenHistory, ...tailHistory],
+                systemInstruction: request.systemInstruction || ''
+            };
+        }
+
+        try {
+            const compressedText = await resolveCompressedMessage(request.sessionId, [hiddenHistory, ...tailHistory], sourceHistory.length, {
+                ...settings,
+                summaryModel: request.model
+            }, signal, onStatus, existingSummary);
+            return {
+                history: [buildHiddenCompressedMessage(compressedText)],
+                systemInstruction: request.systemInstruction || ''
+            };
+        } catch (error) {
+            console.warn('[Gemini Nexus] Failed to compress hidden history and tail, falling back to existing hidden history and unsummarized tail:', error);
+            onStatus?.('compression_failed', {
+                recentTurns
+            });
+            return {
+                history: [hiddenHistory, ...tailHistory],
+                systemInstruction: request.systemInstruction || ''
+            };
+        }
+    }
+
+    if (!hasRecentTurnThreshold(sourceHistory, recentTurns)) {
         return {
             history: sourceHistory,
             systemInstruction: request.systemInstruction || ''
         };
     }
 
-    const recentHistory = sourceHistory.slice(cutoff);
-    const mode = normalizeContextMode(settings.contextMode);
-
-    if (mode === 'recent') {
-        return {
-            history: recentHistory,
-            systemInstruction: request.systemInstruction || ''
-        };
-    }
-
     try {
-        const summary = await resolveSummary(request.sessionId, sourceHistory, cutoff, {
+        const compressedText = await resolveCompressedMessage(request.sessionId, sourceHistory, sourceHistory.length, {
             ...settings,
             summaryModel: request.model
         }, signal, onStatus);
         return {
-            history: recentHistory,
-            systemInstruction: appendSummaryToSystemInstruction(request.systemInstruction, summary)
+            history: [buildHiddenCompressedMessage(compressedText)],
+            systemInstruction: request.systemInstruction || ''
         };
     } catch (error) {
-        console.warn('[Gemini Nexus] Failed to summarize history, falling back to recent turns:', error);
+        console.warn('[Gemini Nexus] Failed to compress history, falling back to recent turns:', error);
         onStatus?.('compression_failed', {
             recentTurns
         });
+        const cutoff = getRecentCutoff(sourceHistory, recentTurns);
+        const recentHistory = cutoff > 0 ? sourceHistory.slice(cutoff) : sourceHistory;
         return {
             history: recentHistory,
             systemInstruction: request.systemInstruction || ''

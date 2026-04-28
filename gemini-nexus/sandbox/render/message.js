@@ -7,7 +7,7 @@ import { t } from '../core/i18n.js';
 
 const MAX_VISIBLE_SOURCES = 2;
 
-export function appendContextCompressionNotice(container, text) {
+export function appendContextCompressionNotice(container, text, options = {}) {
     const div = document.createElement('div');
     div.className = 'context-compression-notice';
     div.setAttribute('role', 'status');
@@ -35,14 +35,19 @@ export function appendContextCompressionNotice(container, text) {
     div.appendChild(lineStart);
     div.appendChild(label);
     div.appendChild(lineEnd);
+    if (options.complete) {
+        div.classList.add('context-compression-complete');
+    }
     container.appendChild(div);
 
-    setTimeout(() => {
-        container.scrollTo({
-            top: div.offsetTop - 20,
-            behavior: 'smooth'
-        });
-    }, 10);
+    if (options.scroll !== false) {
+        setTimeout(() => {
+            container.scrollTo({
+                top: div.offsetTop - 20,
+                behavior: 'smooth'
+            });
+        }, 10);
+    }
 
     return {
         div,

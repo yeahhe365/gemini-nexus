@@ -13,6 +13,42 @@ function getRequestHistory(request) {
     return null;
 }
 
+function getFileImages(files) {
+    if (!Array.isArray(files)) return [];
+    return files.map(file => file?.base64).filter(Boolean);
+}
+
+function normalizeMessageImages(image) {
+    if (!image) return [];
+    return Array.isArray(image) ? image.filter(Boolean) : [image];
+}
+
+function arraysEqual(left, right) {
+    if (left.length !== right.length) return false;
+    return left.every((value, index) => value === right[index]);
+}
+
+function isCurrentUserMessage(message, request) {
+    if (!message || message.role !== 'user') return false;
+    const expectedText = request.historyPromptText ?? request.text ?? '';
+    const actualText = message.text ?? '';
+    if (actualText !== expectedText) return false;
+    return arraysEqual(normalizeMessageImages(message.image), getFileImages(request.files));
+}
+
+function omitCurrentUserMessage(history, request) {
+    if (!Array.isArray(history) || history.length === 0) return history || [];
+    const lastMessage = history[history.length - 1];
+    return isCurrentUserMessage(lastMessage, request) ? history.slice(0, -1) : history;
+}
+
+async function resolveRequestHistory(request) {
+    const overrideHistory = getRequestHistory(request);
+    if (overrideHistory) return overrideHistory;
+    const storedHistory = await getHistory(request.sessionId);
+    return omitCurrentUserMessage(storedHistory, request);
+}
+
 function createContextStatusSender(request, settings) {
     return (state, detail = {}) => {
         chrome.runtime.sendMessage({
@@ -44,7 +80,7 @@ export class RequestDispatcher {
         if (!settings.apiKey) throw new Error("API Key is missing. Please check settings.");
         
         // Fetch History
-        let history = getRequestHistory(request) || await getHistory(request.sessionId);
+        const history = await resolveRequestHistory(request);
         const context = await prepareManagedContext(request, settings, history, signal, createContextStatusSender(request, settings));
 
         const response = await sendOfficialMessage(
@@ -92,7 +128,7 @@ export class RequestDispatcher {
             model: targetModel
         };
 
-        let history = getRequestHistory(request) || await getHistory(request.sessionId);
+        const history = await resolveRequestHistory(request);
         const context = await prepareManagedContext(request, settings, history, signal, createContextStatusSender(request, settings));
 
         const response = await sendOpenAIMessage(
