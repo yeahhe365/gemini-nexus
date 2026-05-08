@@ -1,5 +1,6 @@
 
 // sidepanel/core/state.js
+import { DEFAULT_CONTEXT_RECENT_TURNS } from '../../lib/constants.js';
 
 const OPENAI_WEB_SEARCH_MODES = new Set(['off', 'responses', 'chat']);
 
@@ -167,7 +168,7 @@ export class StateManager {
             action: 'RESTORE_CONTEXT_SETTINGS',
             payload: {
                 mode: this.data.geminiContextMode || 'summary',
-                recentTurns: this.data.geminiContextRecentTurns || 12
+                recentTurns: this.data.geminiContextRecentTurns || DEFAULT_CONTEXT_RECENT_TURNS
             }
         });
         this.frame.postMessage({ action: 'RESTORE_SIDE_PANEL_SCOPE', payload: this.data.geminiSidePanelScope || 'remembered_tabs' });

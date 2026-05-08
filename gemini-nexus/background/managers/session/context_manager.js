@@ -1,10 +1,10 @@
 // background/managers/session/context_manager.js
 import { sendOfficialMessage } from '../../../services/providers/official.js';
 import { sendOpenAIMessage } from '../../../services/providers/openai_compatible.js';
+import { DEFAULT_CONTEXT_RECENT_TURNS } from '../../../lib/constants.js';
 import { getSessionContextSummary, updateSessionContextSummary } from '../history_manager.js';
 
 const DEFAULT_CONTEXT_MODE = 'summary';
-const DEFAULT_RECENT_TURNS = 12;
 const MIN_RECENT_TURNS = 1;
 const MAX_RECENT_TURNS = 50;
 const MAX_SUMMARY_MESSAGE_CHARS = 4000;
@@ -31,8 +31,32 @@ function normalizeContextMode(mode) {
 
 function normalizeRecentTurns(value) {
     const parsed = Number.parseInt(value, 10);
-    if (!Number.isFinite(parsed)) return DEFAULT_RECENT_TURNS;
+    if (!Number.isFinite(parsed)) return DEFAULT_CONTEXT_RECENT_TURNS;
     return Math.min(MAX_RECENT_TURNS, Math.max(MIN_RECENT_TURNS, parsed));
+}
+
+function isHiddenCompressedMessage(message) {
+    return typeof message?.text === 'string'
+        && message.text.startsWith(HIDDEN_COMPRESSED_MESSAGE_PREFIX);
+}
+
+function isToolOutputMessage(message) {
+    return message?.kind === 'tool-output'
+        || (typeof message?.text === 'string' && message.text.startsWith('[Tool Output:'));
+}
+
+function isOfficialFunctionResponseMessage(message) {
+    return message?.role === 'user'
+        && message?.officialContent?.role === 'user'
+        && Array.isArray(message.officialContent.parts)
+        && message.officialContent.parts.some(part => part?.functionResponse);
+}
+
+function isConversationUserTurn(message) {
+    return message?.role === 'user'
+        && !isToolOutputMessage(message)
+        && !isHiddenCompressedMessage(message)
+        && !isOfficialFunctionResponseMessage(message);
 }
 
 function getRecentCutoff(messages, recentTurns) {
@@ -40,7 +64,7 @@ function getRecentCutoff(messages, recentTurns) {
 
     let userTurns = 0;
     for (let i = messages.length - 1; i >= 0; i--) {
-        if (messages[i]?.role === 'user') {
+        if (isConversationUserTurn(messages[i])) {
             userTurns++;
             if (userTurns === recentTurns) {
                 return i;
@@ -53,7 +77,7 @@ function getRecentCutoff(messages, recentTurns) {
 
 function countUserTurns(messages) {
     if (!Array.isArray(messages)) return 0;
-    return messages.reduce((count, message) => message?.role === 'user' ? count + 1 : count, 0);
+    return messages.reduce((count, message) => isConversationUserTurn(message) ? count + 1 : count, 0);
 }
 
 function hasRecentTurnThreshold(messages, recentTurns) {

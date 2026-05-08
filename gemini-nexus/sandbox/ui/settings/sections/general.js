@@ -1,5 +1,6 @@
 
 // sandbox/ui/settings/sections/general.js
+import { DEFAULT_CONTEXT_RECENT_TURNS } from '../../../../lib/constants.js';
 
 export class GeneralSection {
     constructor(callbacks) {
@@ -83,7 +84,7 @@ export class GeneralSection {
             this.elements.contextModeSelect.value = mode;
         }
         if (this.elements.contextRecentTurnsInput) {
-            this.elements.contextRecentTurnsInput.value = Number.isFinite(recentTurns) ? recentTurns : 12;
+            this.elements.contextRecentTurnsInput.value = Number.isFinite(recentTurns) ? recentTurns : DEFAULT_CONTEXT_RECENT_TURNS;
         }
     }
 
@@ -98,7 +99,7 @@ export class GeneralSection {
             sidebarBehavior: selectedSidebarBehavior,
             sidePanelScope: selectedScope,
             contextMode: contextModeSelect ? contextModeSelect.value : 'summary',
-            contextRecentTurns: contextRecentTurnsInput ? contextRecentTurnsInput.value : 12
+            contextRecentTurns: contextRecentTurnsInput ? contextRecentTurnsInput.value : DEFAULT_CONTEXT_RECENT_TURNS
         };
     }
 

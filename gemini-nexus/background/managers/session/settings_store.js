@@ -1,5 +1,6 @@
 
 // background/managers/session/settings_store.js
+import { DEFAULT_CONTEXT_RECENT_TURNS } from '../../../lib/constants.js';
 
 const OPENAI_WEB_SEARCH_MODES = new Set(['off', 'responses', 'chat']);
 
@@ -95,6 +96,6 @@ export async function getConnectionSettings() {
         openaiWebSearch: openaiSettings.webSearch,
         // Context management
         contextMode: stored.geminiContextMode || "summary",
-        contextRecentTurns: stored.geminiContextRecentTurns || 12
+        contextRecentTurns: stored.geminiContextRecentTurns || DEFAULT_CONTEXT_RECENT_TURNS
     };
 }

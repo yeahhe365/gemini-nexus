@@ -1,6 +1,7 @@
 
 // sidepanel/core/bridge.js
 import { downloadFile, downloadText } from '../utils/download.js';
+import { DEFAULT_CONTEXT_RECENT_TURNS } from '../../lib/constants.js';
 
 const OPENAI_WEB_SEARCH_MODES = new Set(['off', 'responses', 'chat']);
 
@@ -124,7 +125,7 @@ export class MessageBridge {
                     action: 'RESTORE_CONTEXT_SETTINGS',
                     payload: {
                         mode: res.geminiContextMode || 'summary',
-                        recentTurns: res.geminiContextRecentTurns || 12
+                        recentTurns: res.geminiContextRecentTurns || DEFAULT_CONTEXT_RECENT_TURNS
                     }
                 });
             });
@@ -210,7 +211,7 @@ export class MessageBridge {
         if (action === 'SAVE_CONTEXT_SETTINGS') {
             this.state.save('geminiContextMode', payload?.mode === 'recent' ? 'recent' : 'summary');
             const recentTurns = Number.parseInt(payload?.recentTurns, 10);
-            this.state.save('geminiContextRecentTurns', Number.isFinite(recentTurns) ? Math.min(50, Math.max(1, recentTurns)) : 12);
+            this.state.save('geminiContextRecentTurns', Number.isFinite(recentTurns) ? Math.min(50, Math.max(1, recentTurns)) : DEFAULT_CONTEXT_RECENT_TURNS);
         }
         if (action === 'SAVE_CONNECTION_SETTINGS') {
             this.state.save('geminiProvider', payload.provider);

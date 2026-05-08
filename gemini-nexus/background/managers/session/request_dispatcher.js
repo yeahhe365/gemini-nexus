@@ -3,6 +3,7 @@
 import { sendOfficialMessage } from '../../../services/providers/official.js';
 import { sendWebMessage } from '../../../services/providers/web.js';
 import { sendOpenAIMessage } from '../../../services/providers/openai_compatible.js';
+import { DEFAULT_CONTEXT_RECENT_TURNS } from '../../../lib/constants.js';
 import { getHistory } from './history_store.js';
 import { prepareManagedContext } from './context_manager.js';
 
@@ -79,7 +80,7 @@ function createContextStatusSender(request, settings) {
             sessionId: request.sessionId || null,
             state,
             mode: settings.contextMode || 'summary',
-            recentTurns: detail.recentTurns || settings.contextRecentTurns || 12
+            recentTurns: detail.recentTurns || settings.contextRecentTurns || DEFAULT_CONTEXT_RECENT_TURNS
         }).catch(() => {});
     };
 }

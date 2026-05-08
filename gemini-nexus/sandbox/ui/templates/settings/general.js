@@ -44,7 +44,7 @@ export const GeneralSettingsTemplate = `
 
             <label class="setting-field setting-field-number">
                 <span data-i18n="contextRecentTurns">Recent turns</span>
-                <input type="number" id="context-recent-turns-input" class="shortcut-input" min="1" max="50" step="1" value="12">
+                <input type="number" id="context-recent-turns-input" class="shortcut-input" min="1" max="50" step="1" value="10">
             </label>
         </div>
 

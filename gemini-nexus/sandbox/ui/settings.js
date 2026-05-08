@@ -3,7 +3,7 @@
 import { saveShortcutsToStorage, saveThemeToStorage, requestThemeFromStorage, saveLanguageToStorage, requestLanguageFromStorage, saveTextSelectionToStorage, requestTextSelectionFromStorage, saveSidebarBehaviorToStorage, saveSidePanelScopeToStorage, saveImageToolsToStorage, requestImageToolsFromStorage, saveAccountIndicesToStorage, requestAccountIndicesFromStorage, saveContextSettingsToStorage, requestContextSettingsFromStorage, saveConnectionSettingsToStorage, requestConnectionSettingsFromStorage, sendToBackground } from '../../lib/messaging.js';
 import { setLanguagePreference, getLanguagePreference } from '../core/i18n.js';
 import { SettingsView } from './settings/view.js';
-import { DEFAULT_SHORTCUTS } from '../../lib/constants.js';
+import { DEFAULT_CONTEXT_RECENT_TURNS, DEFAULT_SHORTCUTS } from '../../lib/constants.js';
 
 const OPENAI_WEB_SEARCH_MODES = new Set(['off', 'responses', 'chat']);
 
@@ -39,7 +39,7 @@ export class SettingsController {
         this.sidePanelScope = 'remembered_tabs';
         this.contextSettings = {
             mode: 'summary',
-            recentTurns: 12
+            recentTurns: DEFAULT_CONTEXT_RECENT_TURNS
         };
         
         // Connection State
@@ -306,7 +306,7 @@ export class SettingsController {
 
     normalizeRecentTurns(value) {
         const parsed = Number.parseInt(value, 10);
-        if (!Number.isFinite(parsed)) return 12;
+        if (!Number.isFinite(parsed)) return DEFAULT_CONTEXT_RECENT_TURNS;
         return Math.min(50, Math.max(1, parsed));
     }
 
