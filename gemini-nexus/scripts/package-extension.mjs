@@ -1,95 +1,100 @@
-import { cpSync, existsSync, mkdirSync, rmSync } from 'node:fs';
+import { cp, mkdir, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { build } from 'vite';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const root = path.resolve(__dirname, '..');
-const dist = path.resolve(root, 'dist');
+const rootDir = path.resolve(__dirname, '..');
+const distDir = path.join(rootDir, 'dist');
+const artifactsDir = path.join(rootDir, 'artifacts');
+const packageDir = path.join(artifactsDir, 'chrome-extension');
 
-const copyTargets = [
+const requiredPaths = [
+  'manifest.json',
   'logo.png',
-  'manifest.json',
-  'metadata.json',
+  'background',
+  'content',
+  'lib',
+  'services',
+  'dist/assets',
+  'dist/sidepanel/index.html',
+  'dist/sandbox/index.html',
 ];
 
-const runtimeBundles = [
-  {
-    entry: path.resolve(root, 'background/index.js'),
-    outputFile: 'background/index.js',
-    format: 'es',
-  },
-  {
-    entry: path.resolve(root, 'content/main.js'),
-    outputFile: 'content/main.js',
-    format: 'iife',
-    name: 'GeminiNexusContent',
-  },
-];
-
-const requiredDistFiles = [
-  'background/index.js',
-  'content/main.js',
-  'manifest.json',
-  'sidepanel/index.html',
-  'sandbox/index.html',
-];
-
-async function bundleRuntimeScripts() {
-  for (const bundle of runtimeBundles) {
-    await build({
-      configFile: false,
-      logLevel: 'silent',
-      resolve: {
-        alias: {
-          '@': path.resolve(root, '.'),
-        },
-      },
-      build: {
-        emptyOutDir: false,
-        outDir: dist,
-        target: 'chrome120',
-        lib: {
-          entry: bundle.entry,
-          formats: [bundle.format],
-          name: bundle.name,
-          fileName: () => bundle.outputFile,
-        },
-        rollupOptions: {
-          output: {
-            inlineDynamicImports: true,
-          },
-        },
-      },
-    });
+async function ensureExists(relativePath) {
+  const absolutePath = path.join(rootDir, relativePath);
+  try {
+    await stat(absolutePath);
+  } catch {
+    throw new Error(`Missing required build input: ${relativePath}`);
   }
 }
 
-function ensureRequiredFiles() {
-  const missing = requiredDistFiles.filter((file) => !existsSync(path.resolve(dist, file)));
-  if (missing.length > 0) {
-    throw new Error(`missing required build outputs: ${missing.join(', ')}`);
+async function copyIntoPackage(sourceRelativePath, targetRelativePath = sourceRelativePath) {
+  const source = path.join(rootDir, sourceRelativePath);
+  const target = path.join(packageDir, targetRelativePath);
+  await mkdir(path.dirname(target), { recursive: true });
+  await cp(source, target, { recursive: true });
+}
+
+async function removeJunkFiles(directory) {
+  const entries = await readdir(directory, { withFileTypes: true });
+
+  await Promise.all(entries.map(async (entry) => {
+    const fullPath = path.join(directory, entry.name);
+
+    if (entry.isDirectory()) {
+      await removeJunkFiles(fullPath);
+      return;
+    }
+
+    if (entry.name === '.DS_Store') {
+      await rm(fullPath, { force: true });
+    }
+  }));
+}
+
+async function main() {
+  for (const relativePath of requiredPaths) {
+    await ensureExists(relativePath);
   }
+
+  await rm(packageDir, { recursive: true, force: true });
+  await mkdir(packageDir, { recursive: true });
+
+  await Promise.all([
+    copyIntoPackage('manifest.json'),
+    copyIntoPackage('logo.png'),
+    copyIntoPackage('background'),
+    copyIntoPackage('content'),
+    copyIntoPackage('lib'),
+    copyIntoPackage('services'),
+    copyIntoPackage('dist/assets', 'assets'),
+    copyIntoPackage('dist/sidepanel/index.html', 'sidepanel/index.html'),
+    copyIntoPackage('dist/sandbox/index.html', 'sandbox/index.html'),
+  ]);
+
+  await removeJunkFiles(packageDir);
+
+  const packageJson = JSON.parse(await readFile(path.join(rootDir, 'package.json'), 'utf8'));
+  await writeFile(
+    path.join(packageDir, 'build-info.json'),
+    JSON.stringify(
+      {
+        name: packageJson.name,
+        version: packageJson.version,
+        builtAt: new Date().toISOString(),
+      },
+      null,
+      2,
+    ) + '\n',
+    'utf8',
+  );
+
+  console.log(`Extension package prepared at ${path.relative(rootDir, packageDir)}`);
 }
 
-if (!existsSync(dist)) {
-  throw new Error('Build output directory not found. Run vite build before packaging the extension.');
-}
-
-rmSync(path.resolve(dist, 'background'), { recursive: true, force: true });
-rmSync(path.resolve(dist, 'content'), { recursive: true, force: true });
-await bundleRuntimeScripts();
-
-for (const target of copyTargets) {
-  const source = path.resolve(root, target);
-  const destination = path.resolve(dist, target);
-  if (!existsSync(source)) continue;
-  rmSync(destination, { recursive: true, force: true });
-  mkdirSync(path.dirname(destination), { recursive: true });
-  cpSync(source, destination, { recursive: true });
-}
-
-ensureRequiredFiles();
-
-console.log('Packaged extension assets into dist/');
+main().catch((error) => {
+  console.error(error instanceof Error ? error.message : error);
+  process.exit(1);
+});

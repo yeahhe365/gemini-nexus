@@ -3,7 +3,87 @@
 import { sendOfficialMessage } from '../../../services/providers/official.js';
 import { sendWebMessage } from '../../../services/providers/web.js';
 import { sendOpenAIMessage } from '../../../services/providers/openai_compatible.js';
+import { DEFAULT_CONTEXT_RECENT_TURNS } from '../../../lib/constants.js';
 import { getHistory } from './history_store.js';
+import { prepareManagedContext } from './context_manager.js';
+
+function getRequestHistory(request) {
+    if (Array.isArray(request.historyOverride)) {
+        return request.historyOverride;
+    }
+    return null;
+}
+
+function getFileImages(files) {
+    if (!Array.isArray(files)) return [];
+    return files.map(file => file?.base64).filter(Boolean);
+}
+
+function normalizeMessageImages(image) {
+    if (!image) return [];
+    return Array.isArray(image) ? image.filter(Boolean) : [image];
+}
+
+function arraysEqual(left, right) {
+    if (left.length !== right.length) return false;
+    return left.every((value, index) => value === right[index]);
+}
+
+function isCurrentUserMessage(message, request) {
+    if (!message || message.role !== 'user') return false;
+    const expectedText = request.historyPromptText ?? request.text ?? '';
+    const actualText = message.text ?? '';
+    if (actualText !== expectedText) return false;
+    return arraysEqual(normalizeMessageImages(message.image), getFileImages(request.files));
+}
+
+function omitCurrentUserMessage(history, request) {
+    if (!Array.isArray(history) || history.length === 0) return history || [];
+    let end = history.length;
+    const currentBatchId = request.officialFunctionResponseBatchId;
+
+    if (currentBatchId) {
+        while (end > 0 && history[end - 1]?.officialFunctionResponseBatchId === currentBatchId) {
+            end--;
+        }
+    }
+
+    const trimmed = end === history.length ? history : history.slice(0, end);
+    const lastMessage = trimmed[trimmed.length - 1];
+    return isCurrentUserMessage(lastMessage, request) ? trimmed.slice(0, -1) : trimmed;
+}
+
+function assertOpenAIWebSearchSupported(model, reasoningEffort) {
+    const normalizedModel = String(model || '').trim().toLowerCase();
+    const normalizedReasoning = String(reasoningEffort || '').trim().toLowerCase();
+
+    if (normalizedModel === 'gpt-4.1-nano' || normalizedModel.startsWith('gpt-4.1-nano-')) {
+        throw new Error("OpenAI web search is not supported for gpt-4.1-nano. Disable OpenAI web search or choose another model.");
+    }
+
+    if ((normalizedModel === 'gpt-5' || normalizedModel.startsWith('gpt-5-')) && normalizedReasoning === 'minimal') {
+        throw new Error("OpenAI web search is not supported for gpt-5 with minimal reasoning. Choose low/medium/high reasoning or disable OpenAI web search.");
+    }
+}
+
+async function resolveRequestHistory(request) {
+    const overrideHistory = getRequestHistory(request);
+    if (overrideHistory) return overrideHistory;
+    const storedHistory = await getHistory(request.sessionId);
+    return omitCurrentUserMessage(storedHistory, request);
+}
+
+function createContextStatusSender(request, settings) {
+    return (state, detail = {}) => {
+        chrome.runtime.sendMessage({
+            action: "GEMINI_CONTEXT_STATUS",
+            sessionId: request.sessionId || null,
+            state,
+            mode: settings.contextMode || 'summary',
+            recentTurns: detail.recentTurns || settings.contextRecentTurns || DEFAULT_CONTEXT_RECENT_TURNS
+        }).catch(() => {});
+    };
+}
 
 export class RequestDispatcher {
     constructor(authManager) {
@@ -24,28 +104,39 @@ export class RequestDispatcher {
         if (!settings.apiKey) throw new Error("API Key is missing. Please check settings.");
         
         // Fetch History
-        let history = await getHistory(request.sessionId);
+        const history = await resolveRequestHistory(request);
+        const context = await prepareManagedContext(request, settings, history, signal, createContextStatusSender(request, settings));
 
         const response = await sendOfficialMessage(
             request.text, 
-            request.systemInstruction, 
-            history, 
-            settings.apiKey,
-            request.model, 
+            context.systemInstruction,
+            context.history,
+            {
+                baseUrl: settings.officialBaseUrl,
+                apiKey: settings.apiKey,
+                model: request.model,
+                configuredModels: settings.officialModel,
+                officialUserParts: request.officialUserParts
+            },
             settings.thinkingLevel, 
             files, 
+            settings.officialWebSearch === true,
             signal,
             onUpdate
         );
 
         return {
             action: "GEMINI_REPLY",
+            sessionId: request.sessionId || null,
             text: response.text,
             thoughts: response.thoughts,
+            sources: response.sources || [],
             images: response.images,
             status: "success",
             context: null, // Official API is stateless
-            thoughtSignature: response.thoughtSignature
+            thoughtSignature: response.thoughtSignature,
+            officialContent: response.officialContent || null,
+            functionCalls: Array.isArray(response.functionCalls) ? response.functionCalls : []
         };
     }
 
@@ -61,15 +152,23 @@ export class RequestDispatcher {
         const config = {
             baseUrl: settings.openaiBaseUrl,
             apiKey: settings.openaiApiKey,
-            model: targetModel
+            model: targetModel,
+            reasoningEffort: settings.openaiThinkingLevel,
+            useResponsesApi: settings.openaiUseResponsesApi === true,
+            webSearch: settings.openaiWebSearch === true
         };
 
-        let history = await getHistory(request.sessionId);
+        if (config.webSearch) {
+            assertOpenAIWebSearchSupported(config.model, config.reasoningEffort);
+        }
+
+        const history = await resolveRequestHistory(request);
+        const context = await prepareManagedContext(request, settings, history, signal, createContextStatusSender(request, settings));
 
         const response = await sendOpenAIMessage(
             request.text,
-            request.systemInstruction,
-            history,
+            context.systemInstruction,
+            context.history,
             config,
             files,
             signal,
@@ -78,8 +177,10 @@ export class RequestDispatcher {
 
         return {
             action: "GEMINI_REPLY",
+            sessionId: request.sessionId || null,
             text: response.text,
             thoughts: response.thoughts,
+            sources: response.sources || [],
             images: response.images,
             status: "success",
             context: null
@@ -91,6 +192,10 @@ export class RequestDispatcher {
         
         let attemptCount = 0;
         const maxAttempts = Math.max(3, this.auth.accountIndices.length > 1 ? 3 : 2);
+
+        if (getRequestHistory(request)) {
+            throw new Error("History editing is not supported for Gemini Web Client.");
+        }
 
         // Concatenate System Instruction for Web Client
         let fullText = request.text;
@@ -119,8 +224,10 @@ export class RequestDispatcher {
 
                 return {
                     action: "GEMINI_REPLY",
+                    sessionId: request.sessionId || null,
                     text: response.text,
                     thoughts: response.thoughts,
+                    sources: [],
                     images: response.images,
                     status: "success",
                     context: response.newContext 

@@ -13,6 +13,7 @@
     box-shadow: 4px 0 12px rgba(0,0,0,0.05);
     transform: translateX(-100%);
     transition: transform 0.2s cubic-bezier(0.2, 0, 0, 1), background-color 0.2s;
+    will-change: transform;
     display: flex;
     flex-direction: column;
     padding-top: 16px; /* Top spacing */
@@ -177,8 +178,20 @@ body.layout-wide .sidebar-overlay {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    max-width: 190px;
+    min-width: 0;
     flex: 1;
+}
+
+.history-generating-spinner {
+    width: 14px;
+    height: 14px;
+    border: 2px solid var(--border-color);
+    border-top-color: currentColor;
+    border-radius: 50%;
+    animation: history-generating-spin 0.8s linear infinite;
+    margin-left: 8px;
+    flex-shrink: 0;
+    pointer-events: none;
 }
 
 .history-delete {
@@ -191,7 +204,7 @@ body.layout-wide .sidebar-overlay {
     justify-content: center;
     color: var(--text-secondary);
     border-radius: 50%;
-    transition: all 0.2s;
+    transition: opacity 0.2s, background-color 0.2s, color 0.2s;
     margin-left: 8px;
     flex-shrink: 0;
 }
@@ -200,12 +213,17 @@ body.layout-wide .sidebar-overlay {
 .history-delete:hover { background: #ffb4ab; color: #690005; }
 [data-theme="dark"] .history-delete:hover { background: #5c1e1a; color: #ffb4ab; }
 
+@keyframes history-generating-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
 /* Overlay */
 .sidebar-overlay {
     position: fixed;
     top: 0; left: 0; right: 0; bottom: 0;
     background: rgba(0,0,0,0.3);
-    backdrop-filter: blur(2px);
     z-index: 190;
     opacity: 0;
     pointer-events: none;

@@ -1,20 +1,22 @@
 {
   "name": "gemini-nexus",
   "private": true,
-  "version": "4.2.3",
+  "version": "5.0.3",
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build && node scripts/package-extension.mjs",
-    "preview": "vite preview",
+    "build": "vite build",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "test:watch": "vitest",
+    "check": "npm run build && npm exec tsc -- --noEmit && npm run test",
+    "package:extension": "npm run build && node scripts/package-extension.mjs",
+    "preview": "vite preview"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
     "jsdom": "^27.0.1",
     "typescript": "~5.8.2",
     "vite": "^6.2.0",
-    "vitest": "^4.1.4"
+    "vitest": "^3.2.4"
   }
 }

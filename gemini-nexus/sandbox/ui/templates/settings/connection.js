@@ -16,8 +16,16 @@ export const ConnectionSettingsTemplate = `
         <!-- Official API Fields -->
         <div id="official-fields" style="display: none; flex-direction: column; gap: 12px;">
             <div>
+                <label data-i18n="baseUrl" style="font-weight: 500; display: block; margin-bottom: 2px;">Base URL</label>
+                <input type="text" id="official-base-url" class="shortcut-input" style="width: 100%; text-align: left; box-sizing: border-box;" data-i18n-placeholder="officialBaseUrlPlaceholder" placeholder="https://generativelanguage.googleapis.com/v1beta">
+            </div>
+            <div>
                 <label data-i18n="apiKey" style="font-weight: 500; display: block; margin-bottom: 2px;">API Key</label>
                 <input type="password" id="api-key-input" class="shortcut-input" style="width: 100%; text-align: left; box-sizing: border-box;" data-i18n-placeholder="apiKeyPlaceholder" placeholder="Paste your Gemini API Key">
+            </div>
+            <div>
+                <label data-i18n="modelIds" style="font-weight: 500; display: block; margin-bottom: 2px;">Model IDs</label>
+                <input type="text" id="official-model" class="shortcut-input" style="width: 100%; text-align: left; box-sizing: border-box;" data-i18n-placeholder="officialModelPlaceholder" placeholder="gemini-3-flash-preview, gemini-3-pro-preview">
             </div>
             <div>
                 <label style="font-weight: 500; display: block; margin-bottom: 2px;">Thinking Level (Gemini 3)</label>
@@ -28,6 +36,10 @@ export const ConnectionSettingsTemplate = `
                     <option value="high">High (Deep Reasoning)</option>
                 </select>
             </div>
+            <label style="display: flex; align-items: center; gap: 8px;">
+                <input type="checkbox" id="official-web-search-enabled" />
+                <span data-i18n="officialWebSearch">Enable Google Search grounding</span>
+            </label>
         </div>
 
         <!-- OpenAI Fields -->
@@ -43,6 +55,25 @@ export const ConnectionSettingsTemplate = `
             <div>
                 <label style="font-weight: 500; display: block; margin-bottom: 2px;">Model IDs (Comma separated)</label>
                 <input type="text" id="openai-model" class="shortcut-input" style="width: 100%; text-align: left; box-sizing: border-box;" placeholder="e.g. gpt-4o, claude-3-5-sonnet">
+            </div>
+            <div>
+                <label style="font-weight: 500; display: block; margin-bottom: 2px;">Thinking Level</label>
+                <select id="openai-thinking-level-select" class="shortcut-input" style="width: 100%; text-align: left; padding: 6px 12px;">
+                    <option value="minimal">Minimal</option>
+                    <option value="low">Low</option>
+                    <option value="medium">Medium</option>
+                    <option value="high">High</option>
+                </select>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+                <label style="display: flex; align-items: center; gap: 8px;">
+                    <input type="checkbox" id="openai-use-responses-api" />
+                    <span data-i18n="openaiUseResponsesApi">Use Responses API</span>
+                </label>
+                <label style="display: flex; align-items: center; gap: 8px;">
+                    <input type="checkbox" id="openai-web-search-enabled" />
+                    <span data-i18n="openaiWebSearch">Enable OpenAI API web search</span>
+                </label>
             </div>
         </div>
     </div>
@@ -84,6 +115,11 @@ export const ConnectionSettingsTemplate = `
             <div>
                 <label data-i18n="mcpServerUrl" style="font-weight: 500; display: block; margin-bottom: 2px;">Server URL</label>
                 <input type="text" id="mcp-server-url" class="shortcut-input" style="width: 100%; text-align: left; box-sizing: border-box;" placeholder="http://127.0.0.1:3006/sse">
+            </div>
+            <div>
+                <label data-i18n="mcpHeaders" style="font-weight: 500; display: block; margin-bottom: 2px;">Request Headers (JSON)</label>
+                <textarea id="mcp-headers" class="shortcut-input" style="width: 100%; min-height: 74px; resize: vertical; text-align: left; box-sizing: border-box; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; line-height: 1.4;" data-i18n-placeholder="mcpHeadersPlaceholder" placeholder='{"Authorization":"Bearer xxx"}'></textarea>
+                <div data-i18n="mcpHeadersDesc" style="font-size: 11px; opacity: 0.75; margin-top: 4px;">Optional JSON object. Applied to SSE and Streamable HTTP requests.</div>
             </div>
             <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px;">
                 <label style="display: flex; align-items: center; gap: 8px;">

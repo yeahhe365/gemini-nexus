@@ -1,7 +1,8 @@
 
 // content/toolbar/image.js
 
-export class GeminiImageDetector {
+(function() {
+    class GeminiImageDetector {
         constructor(callbacks) {
             this.callbacks = callbacks || {}; // { onShow, onHide }
             this.hoveredImage = null;
@@ -71,4 +72,8 @@ export class GeminiImageDetector {
         getCurrentImage() {
             return this.hoveredImage;
         }
-}
+    }
+
+    // Export to Window
+    window.GeminiImageDetector = GeminiImageDetector;
+})();

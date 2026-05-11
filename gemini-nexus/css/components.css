@@ -205,6 +205,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: 12px;
     flex-shrink: 0; /* Header stays fixed */
 }
 
@@ -213,6 +214,20 @@
     font-size: 18px;
     color: var(--text-primary);
     font-weight: 600;
+}
+
+.settings-header-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    min-width: 0;
+}
+
+.settings-header-actions .btn-primary,
+.settings-header-actions .btn-secondary {
+    padding: 7px 12px;
+    white-space: nowrap;
 }
 
 .settings-body {
@@ -331,6 +346,174 @@
     border-color: var(--primary);
     background: var(--bg-input-focus);
     box-shadow: 0 0 0 2px rgba(11, 87, 208, 0.1);
+}
+
+.setting-panel {
+    margin-bottom: 12px;
+    padding: 14px;
+    border-radius: 8px;
+    background: var(--bg-setting-panel);
+}
+
+.setting-panel-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.setting-panel-header {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    margin-bottom: 12px;
+    min-width: 0;
+}
+
+.setting-panel-row .setting-panel-header {
+    flex: 1;
+    margin-bottom: 0;
+}
+
+.setting-panel-header h5 {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.setting-panel-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 112px;
+    gap: 10px;
+    align-items: end;
+}
+
+.setting-panel-grid-even {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.setting-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+}
+
+.setting-field span {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-secondary);
+}
+
+.setting-field .shortcut-input {
+    width: 100%;
+    box-sizing: border-box;
+    text-align: left;
+    font-family: inherit;
+}
+
+.setting-field-number .shortcut-input {
+    text-align: center;
+    font-family: monospace;
+}
+
+.setting-panel-small-input {
+    width: 96px;
+    text-align: left;
+}
+
+.setting-toggle {
+    width: 20px;
+    height: 20px;
+    flex: 0 0 auto;
+    cursor: pointer;
+}
+
+.setting-panel-note {
+    margin-top: 10px;
+}
+
+.setting-radio-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.setting-radio-option {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    min-width: 0;
+    cursor: pointer;
+}
+
+.setting-radio-option input {
+    margin-top: 3px;
+}
+
+.setting-radio-title {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+.setting-radio-desc {
+    margin-top: 2px;
+    font-size: 12px;
+    color: var(--text-tertiary);
+}
+
+.setting-shortcut-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.setting-shortcut-row {
+    margin: 0;
+}
+
+.setting-shortcut-title {
+    min-width: 0;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+.setting-shortcut-row .shortcut-input {
+    flex: 0 0 140px;
+}
+
+.setting-shortcut-static-row .shortcut-input {
+    color: var(--text-tertiary);
+    background: var(--bg-body);
+    cursor: default;
+}
+
+@media (max-width: 430px) {
+    .setting-panel-row {
+        align-items: flex-start;
+    }
+
+    .settings-header {
+        align-items: flex-start;
+    }
+
+    .settings-header-actions {
+        flex-wrap: wrap;
+    }
+
+    .settings-header-actions .btn-primary,
+    .settings-header-actions .btn-secondary {
+        padding-inline: 10px;
+        font-size: 12px;
+    }
+
+    .setting-panel-grid,
+    .setting-panel-grid-even {
+        grid-template-columns: 1fr;
+    }
 }
 .shortcut-static {
     font-size: 13px;

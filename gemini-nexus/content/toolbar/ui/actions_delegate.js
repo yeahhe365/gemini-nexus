@@ -1,78 +1,76 @@
-/**
- * Handles specific UI actions triggered by user interaction.
- */
-export class ToolbarUIActions {
-    constructor(uiManager) {
-        this.manager = uiManager;
-    }
 
-    get view() { return this.manager.view; }
-    get renderer() { return this.manager.renderer; }
+(function() {
+    /**
+     * Handles specific UI actions triggered by user interaction.
+     * Delegates actual logic execution or callback firing.
+     */
+    class ToolbarUIActions {
+        constructor(uiManager) {
+            this.manager = uiManager;
+        }
 
-    triggerAction(e, action) {
-        e.preventDefault();
-        e.stopPropagation();
-        this.manager.fireCallback('onAction', action);
-    }
+        get view() { return this.manager.view; }
+        get renderer() { return this.manager.renderer; }
 
-    cancelAsk(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        this.manager.fireCallback('onAction', 'cancel_ask');
-    }
+        triggerAction(e, action) {
+            e.preventDefault(); e.stopPropagation();
+            this.manager.fireCallback('onAction', action);
+        }
 
-    stopAsk(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        this.manager.fireCallback('onAction', 'stop_ask');
-    }
+        cancelAsk(e) {
+            e.preventDefault(); e.stopPropagation();
+            this.manager.fireCallback('onAction', 'cancel_ask');
+        }
 
-    retryAsk(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        this.manager.fireCallback('onAction', 'retry_ask');
-    }
+        stopAsk(e) {
+            e.preventDefault(); e.stopPropagation();
+            this.manager.fireCallback('onAction', 'stop_ask');
+        }
 
-    continueChat(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        this.manager.fireCallback('onAction', 'continue_chat');
-    }
+        retryAsk(e) {
+            e.preventDefault(); e.stopPropagation();
+            this.manager.fireCallback('onAction', 'retry_ask');
+        }
 
-    submitAsk() {
-        const text = this.view.elements.askInput.value.trim();
-        if (text) this.manager.fireCallback('onAction', 'submit_ask', text);
-    }
+        continueChat(e) {
+            e.preventDefault(); e.stopPropagation();
+            this.manager.fireCallback('onAction', 'continue_chat');
+        }
 
-    async copyResult(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        const text = this.renderer ? this.renderer.currentText : '';
-        if (!text) return;
+        submitAsk(e) {
+            const text = this.view.elements.askInput.value.trim();
+            if (text) this.manager.fireCallback('onAction', 'submit_ask', text);
+        }
 
-        try {
-            await navigator.clipboard.writeText(text);
-            this.view.toggleCopyIcon(true);
-            setTimeout(() => this.view.toggleCopyIcon(false), 2000);
-        } catch (err) {
-            console.error("Failed to copy", err);
-            this.view.showError("Copy failed.");
+        async copyResult(e) {
+            e.preventDefault(); e.stopPropagation();
+            const text = this.renderer ? this.renderer.currentText : '';
+            if (!text) return;
+            
+            try {
+                await navigator.clipboard.writeText(text);
+                this.view.toggleCopyIcon(true);
+                setTimeout(() => this.view.toggleCopyIcon(false), 2000);
+            } catch (err) {
+                console.error("Failed to copy", err);
+                this.view.showError("Copy failed.");
+            }
+        }
+
+        insertResult(e) {
+            e.preventDefault(); e.stopPropagation();
+            const text = this.renderer ? this.renderer.currentText : '';
+            if (!text) return;
+            this.manager.fireCallback('onAction', 'insert_result', text);
+        }
+
+        replaceResult(e) {
+            e.preventDefault(); e.stopPropagation();
+            const text = this.renderer ? this.renderer.currentText : '';
+            if (!text) return;
+            this.manager.fireCallback('onAction', 'replace_result', text);
         }
     }
 
-    insertResult(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        const text = this.renderer ? this.renderer.currentText : '';
-        if (!text) return;
-        this.manager.fireCallback('onAction', 'insert_result', text);
-    }
-
-    replaceResult(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        const text = this.renderer ? this.renderer.currentText : '';
-        if (!text) return;
-        this.manager.fireCallback('onAction', 'replace_result', text);
-    }
-}
+    window.GeminiToolbarUIActions = ToolbarUIActions;
+})();

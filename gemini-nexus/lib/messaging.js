@@ -1,92 +1,114 @@
+
 // lib/messaging.js
 
-const PARENT_ORIGIN = window.location.origin;
-
-function postToParent(action, payload) {
-    const message = payload === undefined ? { action } : { action, payload };
-    window.parent.postMessage(message, PARENT_ORIGIN);
-}
-
 export function sendToBackground(payload) {
-    postToParent('FORWARD_TO_BACKGROUND', payload);
+    window.parent.postMessage({
+        action: 'FORWARD_TO_BACKGROUND',
+        payload: payload
+    }, '*');
 }
 
 export function saveSessionsToStorage(sessions) {
-    postToParent('SAVE_SESSIONS', sessions);
+    window.parent.postMessage({
+        action: 'SAVE_SESSIONS',
+        payload: sessions
+    }, '*');
 }
 
 export function saveShortcutsToStorage(shortcuts) {
-    postToParent('SAVE_SHORTCUTS', shortcuts);
+    window.parent.postMessage({
+        action: 'SAVE_SHORTCUTS',
+        payload: shortcuts
+    }, '*');
 }
 
 export function requestThemeFromStorage() {
-    postToParent('GET_THEME');
+    window.parent.postMessage({ action: 'GET_THEME' }, '*');
 }
 
 export function saveThemeToStorage(theme) {
-    postToParent('SAVE_THEME', theme);
+    window.parent.postMessage({
+        action: 'SAVE_THEME',
+        payload: theme
+    }, '*');
 }
 
 export function requestLanguageFromStorage() {
-    postToParent('GET_LANGUAGE');
+    window.parent.postMessage({ action: 'GET_LANGUAGE' }, '*');
 }
 
 export function saveLanguageToStorage(lang) {
-    postToParent('SAVE_LANGUAGE', lang);
+    window.parent.postMessage({
+        action: 'SAVE_LANGUAGE',
+        payload: lang
+    }, '*');
 }
 
 export function requestTextSelectionFromStorage() {
-    postToParent('GET_TEXT_SELECTION');
+    window.parent.postMessage({ action: 'GET_TEXT_SELECTION' }, '*');
 }
 
 export function saveTextSelectionToStorage(enabled) {
-    postToParent('SAVE_TEXT_SELECTION', enabled);
+    window.parent.postMessage({
+        action: 'SAVE_TEXT_SELECTION',
+        payload: enabled
+    }, '*');
 }
 
 export function requestImageToolsFromStorage() {
-    postToParent('GET_IMAGE_TOOLS');
+    window.parent.postMessage({ action: 'GET_IMAGE_TOOLS' }, '*');
 }
 
 export function saveImageToolsToStorage(enabled) {
-    postToParent('SAVE_IMAGE_TOOLS', enabled);
+    window.parent.postMessage({
+        action: 'SAVE_IMAGE_TOOLS',
+        payload: enabled
+    }, '*');
 }
 
 export function saveSidebarBehaviorToStorage(behavior) {
-    postToParent('SAVE_SIDEBAR_BEHAVIOR', behavior);
+    window.parent.postMessage({
+        action: 'SAVE_SIDEBAR_BEHAVIOR',
+        payload: behavior
+    }, '*');
+}
+
+export function saveSidePanelScopeToStorage(scope) {
+    window.parent.postMessage({
+        action: 'SAVE_SIDE_PANEL_SCOPE',
+        payload: scope
+    }, '*');
 }
 
 export function requestAccountIndicesFromStorage() {
-    postToParent('GET_ACCOUNT_INDICES');
+    window.parent.postMessage({ action: 'GET_ACCOUNT_INDICES' }, '*');
 }
 
 export function saveAccountIndicesToStorage(indices) {
-    postToParent('SAVE_ACCOUNT_INDICES', indices);
+    window.parent.postMessage({
+        action: 'SAVE_ACCOUNT_INDICES',
+        payload: indices
+    }, '*');
+}
+
+export function requestContextSettingsFromStorage() {
+    window.parent.postMessage({ action: 'GET_CONTEXT_SETTINGS' }, '*');
+}
+
+export function saveContextSettingsToStorage(settings) {
+    window.parent.postMessage({
+        action: 'SAVE_CONTEXT_SETTINGS',
+        payload: settings
+    }, '*');
 }
 
 export function requestConnectionSettingsFromStorage() {
-    postToParent('GET_CONNECTION_SETTINGS');
+    window.parent.postMessage({ action: 'GET_CONNECTION_SETTINGS' }, '*');
 }
 
 export function saveConnectionSettingsToStorage(data) {
-    postToParent('SAVE_CONNECTION_SETTINGS', data);
-}
-
-export function signalUiReady() {
-    postToParent('UI_READY');
-}
-
-export function openFullPage() {
-    postToParent('OPEN_FULL_PAGE');
-}
-
-export function saveModelToStorage(model) {
-    postToParent('SAVE_MODEL', model);
-}
-
-export function downloadImageFromParent(url, filename) {
-    postToParent('DOWNLOAD_IMAGE', { url, filename });
-}
-
-export function downloadLogsFromParent(text, filename) {
-    postToParent('DOWNLOAD_LOGS', { text, filename });
+    window.parent.postMessage({
+        action: 'SAVE_CONNECTION_SETTINGS',
+        payload: data
+    }, '*');
 }

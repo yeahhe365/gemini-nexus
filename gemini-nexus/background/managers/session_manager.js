@@ -21,6 +21,17 @@ export class GeminiSessionManager {
         
         this.abortController = new AbortController();
         const signal = this.abortController.signal;
+        let thoughtsStartedAt = null;
+        let thoughtsDurationSeconds = null;
+        const trackedOnUpdate = (partialText, partialThoughts) => {
+            if (typeof partialThoughts === 'string' && partialThoughts.trim()) {
+                if (!thoughtsStartedAt) {
+                    thoughtsStartedAt = Date.now();
+                }
+                thoughtsDurationSeconds = (Date.now() - thoughtsStartedAt) / 1000;
+            }
+            onUpdate(partialText, partialThoughts);
+        };
 
         try {
             const settings = await getConnectionSettings();
@@ -42,7 +53,13 @@ export class GeminiSessionManager {
                 await this.ensureInitialized();
             }
 
-            return await this.dispatcher.dispatch(request, settings, files, onUpdate, signal);
+            const result = await this.dispatcher.dispatch(request, settings, files, trackedOnUpdate, signal);
+            if (result?.thoughts) {
+                result.thoughtsDurationSeconds = thoughtsStartedAt
+                    ? (Date.now() - thoughtsStartedAt) / 1000
+                    : (thoughtsDurationSeconds ?? 0);
+            }
+            return result;
 
         } catch (error) {
             if (error.name === 'AbortError') return null;
@@ -58,29 +75,10 @@ export class GeminiSessionManager {
                 await chrome.storage.local.remove(['geminiContext']);
                 
                 const currentIndex = this.auth.getCurrentIndex();
-                const loginUrl = `https://gemini.google.com/u/${currentIndex}/`;
                 if (isZh) {
-                    errorMessage = `账号 (Index: ${currentIndex}) 未登录或会话已过期。请前往 Gemini 登录。`;
-                    return {
-                        action: "GEMINI_REPLY",
-                        text: "Error: " + errorMessage,
-                        status: "error",
-                        errorMeta: {
-                            linkText: `打开 Gemini 登录（账号 ${currentIndex}）`,
-                            linkUrl
-                        }
-                    };
+                    errorMessage = `账号 (Index: ${currentIndex}) 未登录或会话已过期。请前往 <a href="https://gemini.google.com/u/${currentIndex}/" target="_blank" style="color: inherit; text-decoration: underline;">gemini.google.com/u/${currentIndex}/</a> 登录。`;
                 } else {
-                    errorMessage = `Account (Index: ${currentIndex}) not logged in. Please open Gemini to sign in.`;
-                    return {
-                        action: "GEMINI_REPLY",
-                        text: "Error: " + errorMessage,
-                        status: "error",
-                        errorMeta: {
-                            linkText: `Open Gemini login (account ${currentIndex})`,
-                            linkUrl
-                        }
-                    };
+                    errorMessage = `Account (Index: ${currentIndex}) not logged in. Please log in at <a href="https://gemini.google.com/u/${currentIndex}/" target="_blank" style="color: inherit; text-decoration: underline;">gemini.google.com/u/${currentIndex}/</a>.`;
                 }
             } else if (errorMessage.includes("429") || errorMessage.includes("Too Many Requests")) {
                 errorMessage = isZh ? "请求过于频繁，请稍后再试 (429)" : "Too many requests, please try again later (429)";
@@ -88,6 +86,7 @@ export class GeminiSessionManager {
             
             return {
                 action: "GEMINI_REPLY",
+                sessionId: request.sessionId || null,
                 text: "Error: " + errorMessage,
                 status: "error"
             };

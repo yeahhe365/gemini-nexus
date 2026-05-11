@@ -23,19 +23,46 @@ export class SessionManager {
     }
 
     setSessions(sessions) {
-        this.sessions = sessions || [];
+        this.sessions = this.filterPersistableSessions(sessions || []);
+        if (this.currentSessionId && !this.getSessionById(this.currentSessionId)) {
+            this.currentSessionId = null;
+        }
     }
 
     getCurrentSession() {
-        return this.sessions.find(s => s.id === this.currentSessionId);
+        return this.getSessionById(this.currentSessionId);
     }
 
     getSortedSessions() {
-        return [...this.sessions].sort((a, b) => b.timestamp - a.timestamp);
+        return this.getPersistableSessions().sort((a, b) => b.timestamp - a.timestamp);
     }
 
     setCurrentId(id) {
-        this.currentSessionId = id;
+        this.currentSessionId = this.getSessionById(id) ? id : null;
+    }
+
+    enterDraft() {
+        this.currentSessionId = null;
+    }
+
+    getSessionById(id) {
+        if (!id) return null;
+        return this.sessions.find(s => s.id === id) || null;
+    }
+
+    getPersistableSessions() {
+        return this.filterPersistableSessions(this.sessions);
+    }
+
+    filterPersistableSessions(sessions) {
+        if (!Array.isArray(sessions)) return [];
+        return sessions.filter(session => !this.isDiscardableBlankSession(session));
+    }
+
+    isDiscardableBlankSession(session) {
+        if (!session || typeof session !== 'object') return true;
+        const messageCount = Array.isArray(session.messages) ? session.messages.length : 0;
+        return messageCount === 0;
     }
 
     deleteSession(id) {
@@ -74,6 +101,8 @@ export class SessionManager {
             if (role === 'user' && typeof attachment === 'string') {
                 // Backward compatibility: user attachment is usually a single base64 string
                 msg.image = attachment; 
+            } else if (role === 'user' && Array.isArray(attachment) && attachment.length > 0) {
+                msg.image = attachment;
             } else if (role === 'ai' && Array.isArray(attachment) && attachment.length > 0) {
                 // AI generated images
                 msg.generatedImages = attachment;
@@ -84,6 +113,38 @@ export class SessionManager {
             return true;
         }
         return false;
+    }
+
+    editUserMessageAndTruncate(id, messageIndex, text) {
+        const session = this.sessions.find(s => s.id === id);
+        if (!session || !Array.isArray(session.messages)) return null;
+
+        const target = session.messages[messageIndex];
+        if (!target || target.role !== 'user') return null;
+
+        const previousMessages = session.messages.slice(0, messageIndex);
+        const editedMessage = {
+            ...target,
+            text
+        };
+
+        session.messages = [
+            ...previousMessages,
+            editedMessage
+        ];
+        session.context = null;
+        session.contextSummary = null;
+        session.timestamp = Date.now();
+
+        if (messageIndex === 0) {
+            this.updateTitle(id, text);
+        }
+
+        return {
+            session,
+            message: editedMessage,
+            previousMessages
+        };
     }
 
     updateContext(id, context) {

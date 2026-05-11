@@ -1,35 +1,5 @@
+
 // sandbox/core/image_manager.js
-
-export function extractHtmlImagePayloads(html, options = {}) {
-    const { fileName = 'pasted_image.png', minWidth = 0, minHeight = 0 } = options;
-    if (!html) return [];
-
-    const doc = new DOMParser().parseFromString(html, 'text/html');
-
-    return Array.from(doc.querySelectorAll('img')).flatMap((img) => {
-        const src = img.src || img.getAttribute('src') || '';
-        if (!src) return [];
-
-        const width = Number(img.getAttribute('width') || img.width || 0);
-        const height = Number(img.getAttribute('height') || img.height || 0);
-        if (minWidth && minHeight && width > 0 && width < minWidth && height > 0 && height < minHeight) {
-            return [];
-        }
-
-        if (src.startsWith('data:')) {
-            const match = src.match(/^data:(.+);base64,(.+)$/);
-            return match
-                ? [{ kind: 'file', base64: src, type: match[1], name: fileName }]
-                : [];
-        }
-
-        if (src.startsWith('http')) {
-            return [{ kind: 'url', url: src }];
-        }
-
-        return [];
-    });
-}
 
 export class ImageManager {
     constructor(elements, callbacks = {}) {
@@ -81,18 +51,28 @@ export class ImageManager {
             // 2. Check for HTML Images (e.g. Webpage Copy)
             // Only if no files were found directly (to avoid duplicates for apps that provide both)
             if (!handledFiles && html) {
-                for (const item of extractHtmlImagePayloads(html, { fileName: 'pasted_image.png' })) {
-                    if (item.kind === 'file') {
-                        this.addFile(item.base64, item.type, item.name);
-                        handledHtmlImages = true;
-                        continue;
-                    }
+                const doc = new DOMParser().parseFromString(html, 'text/html');
+                const images = doc.querySelectorAll('img');
+                
+                images.forEach(img => {
+                    const src = img.src;
+                    if (!src) return;
 
-                    if (item.kind === 'url' && this.onUrlDrop) {
-                        this.onUrlDrop(item.url);
-                        handledHtmlImages = true;
+                    if (src.startsWith('data:')) {
+                        // Direct Base64
+                        const match = src.match(/^data:(.+);base64,(.+)$/);
+                        if (match) {
+                            this.addFile(src, match[1], 'pasted_image.png');
+                            handledHtmlImages = true;
+                        }
+                    } else if (src.startsWith('http')) {
+                        // Remote URL
+                        if (this.onUrlDrop) {
+                            this.onUrlDrop(src);
+                            handledHtmlImages = true;
+                        }
                     }
-                }
+                });
             }
 
             // 3. If we intercepted images, we must manually handle the text insertion
@@ -148,22 +128,29 @@ export class ImageManager {
 
             // 2. Web Content (Images in HTML)
             if (!handledFiles && html) {
-                for (const item of extractHtmlImagePayloads(html, {
-                    fileName: 'dragged_image.png',
-                    minWidth: 50,
-                    minHeight: 50,
-                })) {
-                    if (item.kind === 'file') {
-                        this.addFile(item.base64, item.type, item.name);
-                        handledHtmlImages = true;
-                        continue;
-                    }
+                const doc = new DOMParser().parseFromString(html, 'text/html');
+                const images = doc.querySelectorAll('img');
+                
+                images.forEach(img => {
+                    const src = img.src;
+                    if (!src) return;
 
-                    if (item.kind === 'url' && this.onUrlDrop) {
-                        this.onUrlDrop(item.url);
-                        handledHtmlImages = true;
+                    // Filter out likely spacers or tracking pixels
+                    if (img.width > 0 && img.width < 50 && img.height > 0 && img.height < 50) return;
+
+                    if (src.startsWith('data:')) {
+                        const match = src.match(/^data:(.+);base64,(.+)$/);
+                        if (match) {
+                            this.addFile(src, match[1], 'dragged_image.png');
+                            handledHtmlImages = true;
+                        }
+                    } else if (src.startsWith('http')) {
+                        if (this.onUrlDrop) {
+                            this.onUrlDrop(src);
+                            handledHtmlImages = true;
+                        }
                     }
-                }
+                });
             }
 
             // 3. Text Insertion (Mixed Content)

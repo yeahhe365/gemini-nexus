@@ -19,7 +19,9 @@ export class SidebarController {
         this.allSessions = [];
         this.currentSessionId = null;
         this.itemCallbacks = null;
+        this.renderState = { isGenerating: false, generatingSessionId: null };
         this.fuse = null;
+        this.focusTimer = null;
 
         this.initListeners();
     }
@@ -45,18 +47,34 @@ export class SidebarController {
     }
 
     toggle() {
-        if (this.sidebar) this.sidebar.classList.toggle('open');
-        if (this.overlay) this.overlay.classList.toggle('visible');
-        
-        // Auto-focus search if opening
-        if (this.sidebar && this.sidebar.classList.contains('open') && this.searchInput) {
-            setTimeout(() => this.searchInput.focus(), 100);
+        if (!this.sidebar) return;
+
+        const willOpen = !this.sidebar.classList.contains('open');
+        this.sidebar.classList.toggle('open', willOpen);
+        if (this.overlay) {
+            this.overlay.classList.toggle('visible', willOpen);
+        }
+
+        this._clearFocusTimer();
+
+        if (willOpen && this.searchInput) {
+            this.focusTimer = window.setTimeout(() => {
+                this.focusTimer = null;
+                this.searchInput.focus({ preventScroll: true });
+            }, 220);
         }
     }
 
     close() {
+        this._clearFocusTimer();
         if (this.sidebar) this.sidebar.classList.remove('open');
         if (this.overlay) this.overlay.classList.remove('visible');
+    }
+
+    _clearFocusTimer() {
+        if (this.focusTimer === null) return;
+        window.clearTimeout(this.focusTimer);
+        this.focusTimer = null;
     }
 
     _initSearch() {
@@ -90,13 +108,17 @@ export class SidebarController {
         this._renderDOM(displayList);
     }
 
-    renderList(sessions, currentId, itemCallbacks) {
+    renderList(sessions, currentId, itemCallbacks, renderState = {}) {
         if (!this.listEl) return;
         
         // Cache data for searching
         this.allSessions = sessions;
         this.currentSessionId = currentId;
         this.itemCallbacks = itemCallbacks;
+        this.renderState = {
+            isGenerating: renderState.isGenerating === true,
+            generatingSessionId: renderState.generatingSessionId || null
+        };
         
         // Reset Fuse index as data changed
         this.fuse = null;
@@ -111,7 +133,7 @@ export class SidebarController {
     }
 
     _renderDOM(sessions) {
-        this.listEl.innerHTML = '';
+        const fragment = document.createDocumentFragment();
         
         if (sessions.length === 0) {
             const emptyEl = document.createElement('div');
@@ -120,11 +142,14 @@ export class SidebarController {
             emptyEl.style.color = 'var(--text-tertiary)';
             emptyEl.style.fontSize = '13px';
             emptyEl.textContent = t('noConversations');
-            this.listEl.appendChild(emptyEl);
+            fragment.appendChild(emptyEl);
+            this.listEl.replaceChildren(fragment);
             return;
         }
 
         sessions.forEach(s => {
+            const isGeneratingSession = this.renderState.isGenerating
+                && this.renderState.generatingSessionId === s.id;
             const item = document.createElement('div');
             item.className = `history-item ${s.id === this.currentSessionId ? 'active' : ''}`;
             item.onclick = () => {
@@ -139,6 +164,11 @@ export class SidebarController {
             const titleSpan = document.createElement('span');
             titleSpan.className = 'history-title';
             titleSpan.textContent = s.title;
+
+            const spinner = document.createElement('span');
+            spinner.className = 'history-generating-spinner';
+            spinner.title = t('generating');
+            spinner.setAttribute('aria-label', t('generating'));
             
             const delBtn = document.createElement('span');
             delBtn.className = 'history-delete';
@@ -152,8 +182,13 @@ export class SidebarController {
             };
 
             item.appendChild(titleSpan);
+            if (isGeneratingSession) {
+                item.appendChild(spinner);
+            }
             item.appendChild(delBtn);
-            this.listEl.appendChild(item);
+            fragment.appendChild(item);
         });
+
+        this.listEl.replaceChildren(fragment);
     }
 }

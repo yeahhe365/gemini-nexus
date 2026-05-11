@@ -1,9 +1,10 @@
+
 // sandbox/boot/app.js
 import { renderLayout } from '../ui/layout.js';
 import { applyTranslations } from '../core/i18n.js';
 import { configureMarkdown } from '../render/config.js';
-import { sendToBackground, signalUiReady } from '../../lib/messaging.js';
-import { loadLibs } from './loader.js';
+import { sendToBackground } from '../../lib/messaging.js';
+import { loadLibs, MARKDOWN_READY_EVENT } from './loader.js';
 import { AppMessageBridge } from './messaging.js';
 import { bindAppEvents } from './events.js';
 
@@ -15,8 +16,8 @@ export function initAppMode() {
     applyTranslations();
 
     // 2. Signal Ready Immediately
-    signalUiReady();
-
+    window.parent.postMessage({ action: 'UI_READY' }, '*');
+    
     // 3. Initialize Message Bridge
     const bridge = new AppMessageBridge();
 
@@ -27,6 +28,7 @@ export function initAppMode() {
 
     // 5. Async Bootstapping
     (async () => {
+        // Dynamic Import of Application Logic
         const [
             { ImageManager },
             { SessionManager },
@@ -39,6 +41,7 @@ export function initAppMode() {
             import('../controllers/app_controller.js')
         ]);
 
+        // Init Managers
         const sessionManager = new SessionManager();
 
         const ui = new UIController({
@@ -61,22 +64,30 @@ export function initAppMode() {
             inputFn: document.getElementById('prompt')
         }, {
             onUrlDrop: (url) => {
-                ui.updateStatus('Loading image...');
-                sendToBackground({ action: 'FETCH_IMAGE', url: url });
+                ui.updateStatus("Loading image...");
+                sendToBackground({ action: "FETCH_IMAGE", url: url });
             }
         });
 
+        // Initialize Controller
         const app = new AppController(sessionManager, ui, imageManager);
-
+        
+        // Connect Bridge to App Instances
         bridge.setUI(ui);
         bridge.setApp(app);
 
+        // Bind DOM Events
         bindAppEvents(app, ui, (fn) => bridge.setResizeFn(fn));
-
-        loadLibs().then(() => {
+        
+        // Re-render restored sessions exactly when Markdown becomes available.
+        window.addEventListener(MARKDOWN_READY_EVENT, () => {
             if (app) app.rerender();
         });
+        
+        // Trigger dependency load in parallel.
+        loadLibs();
 
+        // Configure Markdown (Initial pass, might be skipped if marked not loaded yet)
         configureMarkdown();
 
     })();

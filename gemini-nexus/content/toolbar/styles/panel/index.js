@@ -1,10 +1,10 @@
-import { panelBodyStyles } from './body.js';
-import { panelFooterStyles } from './footer.js';
-import { panelHeaderStyles } from './header.js';
-import { panelLayoutStyles } from './layout.js';
-
-export const panelStyles =
-    panelLayoutStyles +
-    panelHeaderStyles +
-    panelBodyStyles +
-    panelFooterStyles;
+(function() {
+    window.GeminiStyles = window.GeminiStyles || {};
+    const s = window.GeminiStyles;
+    
+    // Combine modular styles into the main Panel property
+    s.Panel = (s.PanelLayout || '') + 
+              (s.PanelHeader || '') + 
+              (s.PanelBody || '') + 
+              (s.PanelFooter || '');
+})();

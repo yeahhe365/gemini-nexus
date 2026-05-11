@@ -13,10 +13,6 @@ const MODEL_HEADERS = {
 
 const DEFAULT_MODEL = 'gemini-3-flash';
 
-export function isGeminiLoginHtml(chunk = '') {
-    return chunk.includes('<!DOCTYPE html>') || chunk.includes('<html') || chunk.includes('Sign in');
-}
-
 async function handleFileUploads(files, signal) {
     if (!files || files.length === 0) return [];
     
@@ -130,7 +126,7 @@ export async function sendWebMessage(prompt, context, model, files, signal, onUp
             const chunk = decoder.decode(value, { stream: true });
             
             if (isFirstChunk) {
-                if (isGeminiLoginHtml(chunk)) {
+                if (chunk.includes('<!DOCTYPE html>') || chunk.includes('<html') || chunk.includes('Sign in')) {
                     throw new Error("未登录 (Session expired)");
                 }
                 isFirstChunk = false;
@@ -166,7 +162,7 @@ export async function sendWebMessage(prompt, context, model, files, signal, onUp
     }
 
     if (!finalResult) {
-        if (isGeminiLoginHtml(buffer)) {
+        if (buffer.includes('<!DOCTYPE html>')) {
              throw new Error("未登录 (Session expired)");
         }
         console.debug("Invalid response buffer sample:", buffer.substring(0, 200));

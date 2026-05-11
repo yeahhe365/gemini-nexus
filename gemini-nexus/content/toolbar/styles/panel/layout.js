@@ -1,4 +1,6 @@
-export const panelLayoutStyles = `
+(function() {
+    window.GeminiStyles = window.GeminiStyles || {};
+    window.GeminiStyles.PanelLayout = `
         /* Ask Window Styles - Layout */
         .ask-window {
             position: fixed;
@@ -103,3 +105,4 @@ export const panelLayoutStyles = `
             }
         }
     `;
+})();

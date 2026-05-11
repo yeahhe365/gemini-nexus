@@ -3,7 +3,9 @@
 
 
 
-export const widgetStyles = `
+(function() {
+    window.GeminiStyles = window.GeminiStyles || {};
+    window.GeminiStyles.Widget = `
         /* Toolbar Styles */
         .toolbar {
             position: absolute;
@@ -220,3 +222,4 @@ export const widgetStyles = `
             display: flex;
         }
     `;
+})();

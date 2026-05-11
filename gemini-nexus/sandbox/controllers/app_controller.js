@@ -4,7 +4,7 @@ import { MessageHandler } from './message_handler.js';
 import { SessionFlowController } from './session_flow.js';
 import { PromptController } from './prompt.js';
 import { t } from '../core/i18n.js';
-import { saveModelToStorage, saveSessionsToStorage, sendToBackground } from '../../lib/messaging.js';
+import { saveSessionsToStorage, sendToBackground } from '../../lib/messaging.js';
 
 export class AppController {
     constructor(sessionManager, uiController, imageManager) {
@@ -14,8 +14,13 @@ export class AppController {
         
         this.captureMode = 'snip'; 
         this.isGenerating = false; 
+        this.generatingSessionId = null;
         this.pageContextActive = false;
         this.browserControlActive = false;
+        this.sidePanelScope = 'remembered_tabs';
+        this.currentTabId = null;
+        this.boundSessionId = null;
+        this.sessionsRestored = false;
         
         // Sidebar Restore Behavior: 'auto', 'restore', 'new'
         this.sidebarRestoreBehavior = 'auto';
@@ -31,6 +36,10 @@ export class AppController {
         // Initialize Sub-Controllers
         this.sessionFlow = new SessionFlowController(sessionManager, uiController, this);
         this.prompt = new PromptController(sessionManager, uiController, imageManager, this);
+
+        document.addEventListener('gemini-provider-changed', () => {
+            if (!this.isGenerating) this.rerender();
+        });
     }
 
     setCaptureMode(mode) {
@@ -120,7 +129,15 @@ export class AppController {
     }
 
     handleModelChange(model) {
-        saveModelToStorage(model);
+        const connectionData = this.ui.settings?.connectionData;
+        const provider = connectionData?.provider || (connectionData?.useOfficialApi ? 'official' : 'web');
+        if (provider === 'openai' && connectionData) {
+            connectionData.openaiSelectedModel = model;
+        }
+        window.parent.postMessage({
+            action: 'SAVE_MODEL',
+            payload: { provider, model }
+        }, '*');
     }
 
     handleDeleteSession(sessionId) {
@@ -135,6 +152,55 @@ export class AppController {
         this.prompt.send();
     }
 
+    saveCurrentTabSessionBinding(sessionId) {
+        if (!Number.isInteger(this.currentTabId) || this.currentTabId <= 0) return;
+        window.parent.postMessage({
+            action: 'SAVE_SIDE_PANEL_SESSION_BINDING',
+            payload: {
+                tabId: this.currentTabId,
+                sessionId
+            }
+        }, '*');
+    }
+
+    getBoundSession() {
+        return this.boundSessionId
+            ? this.sessionManager.getSessionById(this.boundSessionId)
+            : null;
+    }
+
+    restoreRememberedTabSession() {
+        const boundSession = this.getBoundSession();
+        if (boundSession) {
+            if (this.sessionManager.currentSessionId !== boundSession.id) {
+                this.switchToSession(boundSession.id);
+            }
+            return;
+        }
+
+        this.sessionFlow.enterDraft();
+    }
+
+    getMessageCount(session) {
+        return Array.isArray(session?.messages) ? session.messages.length : 0;
+    }
+
+    hasNewAiMessage(session, previousMessageCount) {
+        const messages = Array.isArray(session?.messages) ? session.messages : [];
+        if (messages.length <= previousMessageCount) return false;
+        return messages.slice(previousMessageCount).some(message => message?.role === 'ai');
+    }
+
+    syncCurrentSessionFromStorage(sessionId, previousMessageCount) {
+        const session = this.sessionManager.getSessionById(sessionId);
+        if (!this.hasNewAiMessage(session, previousMessageCount)) return false;
+
+        const scrollState = this.ui.getChatScrollState ? this.ui.getChatScrollState() : null;
+        this.sessionFlow.switchToSession(sessionId, { restoreScrollState: scrollState });
+        this.messageHandler.markSessionRenderedFromStorage(sessionId, this.getMessageCount(session));
+        return true;
+    }
+
     // --- Event Handling ---
 
     async handleIncomingMessage(event) {
@@ -146,11 +212,41 @@ export class AppController {
             this.ui.settings.updateSidebarBehavior(payload);
             return;
         }
+        if (action === 'RESTORE_SIDE_PANEL_SCOPE') {
+            this.sidePanelScope = payload || 'remembered_tabs';
+            this.ui.settings.updateSidePanelScope(payload);
+            return;
+        }
+        if (action === 'RESTORE_CONTEXT_SETTINGS') {
+            this.ui.settings.updateContextSettings(payload);
+            return;
+        }
+        if (action === 'RESTORE_SIDE_PANEL_TAB_CONTEXT') {
+            this.currentTabId = payload?.tabId || null;
+            this.boundSessionId = payload?.sessionId || null;
+            if (this.sessionsRestored && this.sidePanelScope === 'remembered_tabs') {
+                this.restoreRememberedTabSession();
+            }
+            return;
+        }
 
         // Restore Sessions
         if (action === 'RESTORE_SESSIONS') {
-            this.sessionManager.setSessions(payload || []);
+            const restoredSessions = Array.isArray(payload) ? payload : [];
+            const previousCurrentId = this.sessionManager.currentSessionId;
+            const previousCurrentSession = this.sessionManager.getCurrentSession();
+            const previousMessageCount = this.getMessageCount(previousCurrentSession);
+
+            this.sessionManager.setSessions(restoredSessions);
+            this.sessionsRestored = true;
             this.sessionFlow.refreshHistoryUI();
+            if (this.sessionManager.sessions.length !== restoredSessions.length) {
+                saveSessionsToStorage(this.sessionManager.getPersistableSessions());
+            }
+
+            if (previousCurrentId && previousCurrentSession) {
+                this.syncCurrentSessionFromStorage(previousCurrentId, previousMessageCount);
+            }
 
             const currentId = this.sessionManager.currentSessionId;
             const currentSessionExists = this.sessionManager.getCurrentSession();
@@ -177,7 +273,9 @@ export class AppController {
                      }
                  }
 
-                 if (shouldRestore && sorted.length > 0) {
+                 if (this.sidePanelScope === 'remembered_tabs') {
+                     this.restoreRememberedTabSession();
+                 } else if (shouldRestore && sorted.length > 0) {
                      this.switchToSession(sorted[0].id);
                  } else {
                      this.handleNewChat();

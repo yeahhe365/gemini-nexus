@@ -10,6 +10,10 @@ export class ChatController {
         this.inputFn = elements.inputFn;
         this.sendBtn = elements.sendBtn;
         this.pageContextBtn = document.getElementById('page-context-btn');
+        this.shouldFollowBottom = true;
+        this.scrollFrame = null;
+        this.resizeObserver = null;
+        this.observedResizeElements = new WeakSet();
 
         this.initListeners();
     }
@@ -26,6 +30,20 @@ export class ChatController {
         // Code Block Copy Delegation
         if (this.historyDiv) {
             this.historyDiv.addEventListener('click', async (e) => {
+                const link = e.target.closest('a[href]');
+                if (link) {
+                    const href = link.getAttribute('href');
+                    if (href && /^https?:\/\//i.test(href)) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        window.parent.postMessage({
+                            action: 'OPEN_EXTERNAL_URL',
+                            payload: { url: href }
+                        }, '*');
+                        return;
+                    }
+                }
+
                 const btn = e.target.closest('.copy-code-btn');
                 if (!btn) return;
                 
@@ -48,6 +66,11 @@ export class ChatController {
                 }
             });
         }
+
+        if (this.historyDiv) {
+            this.historyDiv.addEventListener('scroll', () => this.handleHistoryScroll(), { passive: true });
+            this.initScrollObservers();
+        }
     }
 
     updateStatus(text) {
@@ -60,9 +83,110 @@ export class ChatController {
         if (this.historyDiv) this.historyDiv.innerHTML = '';
     }
 
-    scrollToBottom() {
+    isNearBottom(threshold = 120) {
+        if (!this.historyDiv) return null;
+
+        const distanceFromBottom = this.historyDiv.scrollHeight
+            - this.historyDiv.scrollTop
+            - this.historyDiv.clientHeight;
+
+        return distanceFromBottom <= threshold;
+    }
+
+    getScrollState() {
+        if (!this.historyDiv) return null;
+
+        return {
+            scrollTop: this.historyDiv.scrollTop,
+            scrollHeight: this.historyDiv.scrollHeight,
+            clientHeight: this.historyDiv.clientHeight,
+            isNearBottom: this.isNearBottom()
+        };
+    }
+
+    handleHistoryScroll() {
+        const isNearBottom = this.isNearBottom();
+        if (isNearBottom !== null) {
+            this.shouldFollowBottom = isNearBottom;
+        }
+    }
+
+    initScrollObservers() {
+        if (!this.historyDiv) return;
+
+        if (typeof MutationObserver !== 'undefined') {
+            const mutationObserver = new MutationObserver(() => {
+                this.observeScrollableChildren();
+                this.followStreamingContent();
+            });
+            mutationObserver.observe(this.historyDiv, {
+                childList: true,
+                subtree: true,
+                characterData: true
+            });
+        }
+
+        if (typeof ResizeObserver !== 'undefined') {
+            this.resizeObserver = new ResizeObserver(() => this.followStreamingContent());
+            this.resizeObserver.observe(this.historyDiv);
+            this.observeScrollableChildren();
+        }
+    }
+
+    observeScrollableChildren() {
+        if (!this.resizeObserver || !this.historyDiv) return;
+
+        Array.from(this.historyDiv.children).forEach((child) => {
+            if (this.observedResizeElements.has(child)) return;
+            this.observedResizeElements.add(child);
+            this.resizeObserver.observe(child);
+        });
+    }
+
+    scheduleBottomScroll(behavior = 'instant') {
+        if (!this.historyDiv) return;
+        if (this.scrollFrame !== null) return;
+
+        this.scrollFrame = window.requestAnimationFrame(() => {
+            this.scrollFrame = null;
+            if (!this.historyDiv) return;
+            this.historyDiv.scrollTo({
+                top: this.historyDiv.scrollHeight,
+                behavior
+            });
+        });
+    }
+
+    followStreamingContent() {
+        if (!this.shouldFollowBottom) return;
+        this.scheduleBottomScroll('instant');
+    }
+
+    restoreScrollState(state) {
+        if (!this.historyDiv || !state) return;
+
+        setTimeout(() => {
+            if (state.isNearBottom) {
+                this.shouldFollowBottom = true;
+                this.scheduleBottomScroll('instant');
+                return;
+            }
+
+            this.shouldFollowBottom = false;
+            const maxScrollTop = Math.max(0, this.historyDiv.scrollHeight - this.historyDiv.clientHeight);
+            this.historyDiv.scrollTop = Math.min(state.scrollTop, maxScrollTop);
+        }, 50);
+    }
+
+    scrollToBottom(options = {}) {
         if (this.historyDiv) {
             setTimeout(() => {
+                if (options.mode === 'bottom') {
+                    this.shouldFollowBottom = true;
+                    this.scheduleBottomScroll('instant');
+                    return;
+                }
+
                 // Scroll to the start of the last message to ensure visibility from the beginning
                 const lastMsg = this.historyDiv.lastElementChild;
                 if (lastMsg) {

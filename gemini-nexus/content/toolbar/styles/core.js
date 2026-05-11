@@ -1,4 +1,6 @@
-export const coreStyles = `
+(function() {
+    window.GeminiStyles = window.GeminiStyles || {};
+    window.GeminiStyles.Core = `
         /* Shared Resets */
         button { font-family: inherit; }
         
@@ -24,3 +26,4 @@ export const coreStyles = `
         }
         @keyframes spin { to { transform: rotate(360deg); } }
     `;
+})();

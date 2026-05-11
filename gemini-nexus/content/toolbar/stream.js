@@ -1,7 +1,8 @@
 
 // content/toolbar/stream.js
 
-export class GeminiStreamHandler {
+(function() {
+    class GeminiStreamHandler {
         constructor(uiController, callbacks) {
             this.ui = uiController;
             this.callbacks = callbacks || {}; // { onSessionId }
@@ -35,10 +36,14 @@ export class GeminiStreamHandler {
                         // Pass result.images array
                         this.ui.showResult(result.text, null, false, result.images);
                     } else if (result && result.status === 'error') {
-                        this.ui.showError(result.text, result.errorMeta || null);
+                        this.ui.showError(result.text);
                     }
                     // If result is null (cancelled), do nothing or handle accordingly
                 }
             }
         }
-}
+    }
+
+    // Export to Window
+    window.GeminiStreamHandler = GeminiStreamHandler;
+})();

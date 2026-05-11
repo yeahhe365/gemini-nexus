@@ -1,16 +1,204 @@
 // services/providers/official.js
 
+function extractGroundingSources(groundingMetadata) {
+    if (!groundingMetadata || !Array.isArray(groundingMetadata.groundingChunks)) {
+        return [];
+    }
+
+    const sources = [];
+
+    groundingMetadata.groundingChunks.forEach((chunk) => {
+        const web = chunk && typeof chunk === 'object' ? chunk.web : null;
+        if (!web || !web.uri) return;
+
+        let title = web.title || web.uri;
+        try {
+            if (!web.title) {
+                title = new URL(web.uri).hostname;
+            }
+        } catch (_) {}
+
+        sources.push({
+            title,
+            url: web.uri
+        });
+    });
+
+    return sources;
+}
+
+function isPlainObject(value) {
+    return value && typeof value === 'object' && !Array.isArray(value);
+}
+
+function cloneJson(value) {
+    if (value === undefined) return undefined;
+    try {
+        return JSON.parse(JSON.stringify(value));
+    } catch (_) {
+        return value;
+    }
+}
+
+function hasNativePart(part) {
+    return isPlainObject(part)
+        && (part.text !== undefined
+            || isPlainObject(part.functionCall)
+            || isPlainObject(part.functionResponse)
+            || isPlainObject(part.inlineData)
+            || part.thought !== undefined
+            || part.thoughtSignature !== undefined);
+}
+
+function cloneOfficialParts(parts) {
+    if (!Array.isArray(parts)) return [];
+    return parts
+        .filter(hasNativePart)
+        .map(part => cloneJson(part))
+        .filter(Boolean);
+}
+
+function normalizeFunctionCall(part, partIndex) {
+    const functionCall = part && isPlainObject(part.functionCall) ? part.functionCall : null;
+    const name = typeof functionCall?.name === 'string' ? functionCall.name.trim() : '';
+    if (!name) return null;
+
+    return {
+        id: typeof functionCall.id === 'string' ? functionCall.id : null,
+        name,
+        args: isPlainObject(functionCall.args) ? cloneJson(functionCall.args) : {},
+        partIndex
+    };
+}
+
+function buildMessageContent(msg, targetModel) {
+    void targetModel;
+    const fallbackRole = msg?.role === 'ai' ? 'model' : 'user';
+
+    if (msg?.kind === 'tool-output' && msg.officialFunctionResponseBatchId) {
+        return { role: fallbackRole, parts: [] };
+    }
+
+    const nativeContent = isPlainObject(msg?.officialContent) ? msg.officialContent : null;
+    const nativeParts = nativeContent
+        ? cloneOfficialParts(nativeContent.parts)
+        : cloneOfficialParts(msg?.officialParts);
+
+    if (nativeParts.length > 0) {
+        return {
+            role: nativeContent?.role === 'model' || nativeContent?.role === 'user'
+                ? nativeContent.role
+                : fallbackRole,
+            parts: nativeParts
+        };
+    }
+
+    const parts = [];
+
+    if (msg.role === 'ai') {
+        // Model turn. For Gemini 3 function-calling, thought signatures must
+        // stay attached to their original native parts; legacy text-only
+        // history can only preserve a single signature on the text part.
+        if (msg.text !== undefined) {
+            parts.push({ text: msg.text });
+        }
+    } else {
+        // User turn
+        if (msg.text) parts.push({ text: msg.text });
+
+        // Add images if present
+        if (msg.image && Array.isArray(msg.image)) {
+            msg.image.forEach(img => {
+                // img is base64 string "data:image/png;base64,..."
+                const p = img.split(',');
+                if (p.length === 2) {
+                    const mimeMatch = p[0].match(/:(.*?);/);
+                    const mimeType = mimeMatch ? mimeMatch[1] : 'image/png';
+                    parts.push({
+                        inlineData: { mimeType, data: p[1] }
+                    });
+                }
+            });
+        }
+    }
+
+    return { role: fallbackRole, parts };
+}
+
+export function extractOfficialResponseData(candidate) {
+    const modelParts = [];
+    const functionCalls = [];
+    const seenFunctionCallIds = new Set();
+    let text = "";
+    let thoughts = "";
+    let thoughtSignature = null;
+
+    if (!candidate?.content || !Array.isArray(candidate.content.parts)) {
+        return {
+            text,
+            thoughts,
+            thoughtSignature,
+            officialContent: null,
+            functionCalls
+        };
+    }
+
+    candidate.content.parts.forEach((part, partIndex) => {
+        if (!isPlainObject(part)) return;
+
+        modelParts.push(cloneJson(part));
+
+        if (part.thought === true && part.text) {
+            thoughts += part.text;
+        } else if (typeof part.thought === 'string') {
+            thoughts += part.thought;
+        } else if (part.text) {
+            text += part.text;
+        }
+
+        const functionCall = normalizeFunctionCall(part, partIndex);
+        if (functionCall) {
+            const key = functionCall.id || `${partIndex}:${functionCall.name}:${JSON.stringify(functionCall.args)}`;
+            if (!seenFunctionCallIds.has(key)) {
+                seenFunctionCallIds.add(key);
+                functionCalls.push(functionCall);
+            }
+        }
+
+        if (part.thoughtSignature) {
+            thoughtSignature = part.thoughtSignature;
+        }
+    });
+
+    return {
+        text,
+        thoughts,
+        thoughtSignature,
+        officialContent: modelParts.length > 0
+            ? { role: candidate.content.role || 'model', parts: modelParts }
+            : null,
+        functionCalls
+    };
+}
+
 /**
  * Sends a message using the Official Google Gemini API.
  */
-export async function sendOfficialMessage(prompt, systemInstruction, history, apiKey, modelName, thinkingLevel, files, signal, onUpdate) {
+export async function sendOfficialMessage(prompt, systemInstruction, history, config, thinkingLevel, files, enableWebSearch, signal, onUpdate) {
+    let { baseUrl, apiKey, model: modelName, configuredModels } = config || {};
     if (!apiKey) throw new Error("API Key is missing.");
+    if (!baseUrl) baseUrl = "https://generativelanguage.googleapis.com/v1beta";
     
     // Dynamic Model Selection: Map UI values to API IDs
     let targetModel = modelName;
     
-    // Default mapping if not specific
-    if (!targetModel) targetModel = "gemini-3-flash-preview"; 
+    if (!targetModel) {
+        const configured = (configuredModels || "")
+            .split(',')
+            .map(m => m.trim())
+            .filter(Boolean);
+        targetModel = configured[0] || "gemini-3-flash-preview";
+    }
 
     // Explicit Mapping logic
     if (targetModel === 'gemini-3-flash') {
@@ -23,71 +211,28 @@ export async function sendOfficialMessage(prompt, systemInstruction, history, ap
     
     console.debug(`[Gemini Official API] Requesting ${targetModel} (Original: ${modelName})...`);
 
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${targetModel}:streamGenerateContent?alt=sse&key=${apiKey}`;
+    const normalizedBaseUrl = baseUrl.replace(/\/$/, "");
+    const url = `${normalizedBaseUrl}/models/${targetModel}:streamGenerateContent?alt=sse&key=${apiKey}`;
 
     // 1. Build Contents Array (History + Current Prompt)
     const contents = [];
 
-    // Helper to format parts
-    const formatPart = (msg) => {
-        const parts = [];
-        
-        if (msg.role === 'ai') {
-            // Model turn
-            let signature = msg.thoughtSignature;
-            
-            // Gemini 3 requires thoughtSignature on parts.
-            // If missing (legacy history), use dummy string for Gemini 3 to bypass strict validation.
-            if (!signature && targetModel.includes("gemini-3")) {
-                signature = "context_engineering_is_the_way_to_go";
-            }
-
-            if (msg.text !== undefined) {
-                const part = { text: msg.text };
-                if (signature) {
-                    part.thoughtSignature = signature;
-                }
-                parts.push(part);
-            }
-        } else {
-            // User turn
-            if (msg.text) parts.push({ text: msg.text });
-            
-            // Add images if present
-            if (msg.image && Array.isArray(msg.image)) {
-                msg.image.forEach(img => {
-                    // img is base64 string "data:image/png;base64,..."
-                    const p = img.split(',');
-                    if (p.length === 2) {
-                        const mimeMatch = p[0].match(/:(.*?);/);
-                        const mimeType = mimeMatch ? mimeMatch[1] : 'image/png';
-                        parts.push({
-                            inlineData: { mimeType, data: p[1] }
-                        });
-                    }
-                });
-            }
-        }
-        
-        return parts;
-    };
-
     // Add History
     if (history && Array.isArray(history)) {
         history.forEach(msg => {
-            const role = msg.role === 'ai' ? 'model' : 'user';
-            const parts = formatPart(msg);
-            if (parts.length > 0) {
-                contents.push({ role, parts });
+            const content = buildMessageContent(msg, targetModel);
+            if (content.parts.length > 0) {
+                contents.push(content);
             }
         });
     }
 
     // Add Current Prompt
-    const currentParts = [];
-    if (prompt) currentParts.push({ text: prompt });
-    
-    if (files && files.length > 0) {
+    const configuredCurrentParts = cloneOfficialParts(config?.officialUserParts);
+    const currentParts = configuredCurrentParts.length > 0 ? configuredCurrentParts : [];
+    if (configuredCurrentParts.length === 0 && prompt) currentParts.push({ text: prompt });
+
+    if (configuredCurrentParts.length === 0 && files && files.length > 0) {
         files.forEach(f => {
              const parts = f.base64.split(',');
              const base64Data = parts[1];
@@ -100,20 +245,21 @@ export async function sendOfficialMessage(prompt, systemInstruction, history, ap
              });
         });
     }
-    
-    contents.push({ role: 'user', parts: currentParts });
+
+    if (currentParts.length > 0) {
+        contents.push({ role: 'user', parts: currentParts });
+    }
 
     const payload = {
         contents: contents,
         generationConfig: {
-            temperature: 1.0, // Official recommendation: Lock to 1.0 to prevent reasoning degradation
-            // Inject High-Res Image Configuration
-            imageConfig: {
-                aspectRatio: "1:1",
-                imageSize: "4K"
-            }
+            temperature: 1.0 // Official recommendation: Lock to 1.0 to prevent reasoning degradation
         }
     };
+
+    if (enableWebSearch) {
+        payload.tools = [{ google_search: {} }];
+    }
 
     // Apply Thinking Config if requested or user has configured it level
     // Specifically enable thinking for "Thinking" model variant
@@ -150,6 +296,10 @@ export async function sendOfficialMessage(prompt, systemInstruction, history, ap
     let fullText = "";
     let fullThoughts = "";
     let finalThoughtSignature = null;
+    const modelParts = [];
+    const functionCalls = [];
+    const sources = [];
+    const seenSourceUrls = new Set();
 
     while (true) {
         const { done, value } = await reader.read();
@@ -167,28 +317,30 @@ export async function sendOfficialMessage(prompt, systemInstruction, history, ap
                 const jsonStr = trimmed.substring(6);
                 try {
                     const data = JSON.parse(jsonStr);
-                    if (data.candidates && data.candidates[0] && data.candidates[0].content) {
-                        const parts = data.candidates[0].content.parts;
-                        if (parts && parts.length > 0) {
-                            parts.forEach(p => {
-                                // Extract thoughts first (could be boolean flag + text, or string field)
-                                if (p.thought === true && p.text) {
-                                    fullThoughts += p.text;
-                                } else if (typeof p.thought === 'string') {
-                                    fullThoughts += p.thought;
-                                } else if (p.text) {
-                                    // Only add to fullText if NOT a thought
-                                    fullText += p.text;
-                                }
-                                
-                                if (p.thoughtSignature) {
-                                    finalThoughtSignature = p.thoughtSignature;
-                                }
-                            });
-                            
-                            if (fullText || fullThoughts) {
-                                onUpdate(fullText, fullThoughts);
-                            }
+                    const candidate = data.candidates && data.candidates[0] ? data.candidates[0] : null;
+
+                    if (candidate && candidate.groundingMetadata) {
+                        extractGroundingSources(candidate.groundingMetadata).forEach((source) => {
+                            if (!source.url || seenSourceUrls.has(source.url)) return;
+                            seenSourceUrls.add(source.url);
+                            sources.push(source);
+                        });
+                    }
+
+                    if (candidate && candidate.content) {
+                        const parsed = extractOfficialResponseData(candidate);
+                        if (parsed.officialContent) {
+                            modelParts.push(...parsed.officialContent.parts);
+                        }
+                        if (parsed.functionCalls.length > 0) {
+                            functionCalls.push(...parsed.functionCalls);
+                        }
+                        if (parsed.text) fullText += parsed.text;
+                        if (parsed.thoughts) fullThoughts += parsed.thoughts;
+                        if (parsed.thoughtSignature) finalThoughtSignature = parsed.thoughtSignature;
+
+                        if (fullText || fullThoughts) {
+                            onUpdate(fullText, fullThoughts);
                         }
                     }
                 } catch (e) {
@@ -198,11 +350,23 @@ export async function sendOfficialMessage(prompt, systemInstruction, history, ap
         }
     }
 
+    const seenCallIds = new Set();
+    const dedupedFunctionCalls = functionCalls
+        .filter(call => {
+            if (!call?.id) return true;
+            if (seenCallIds.has(call.id)) return false;
+            seenCallIds.add(call.id);
+            return true;
+        });
+
     return {
         text: fullText,
         thoughts: fullThoughts || null, 
+        sources,
         images: [], 
         context: null, // Stateless
-        thoughtSignature: finalThoughtSignature
+        thoughtSignature: finalThoughtSignature,
+        officialContent: modelParts.length > 0 ? { role: 'model', parts: modelParts } : null,
+        functionCalls: dedupedFunctionCalls
     };
 }

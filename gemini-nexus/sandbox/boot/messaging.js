@@ -1,3 +1,4 @@
+
 // sandbox/boot/messaging.js
 
 export class AppMessageBridge {
@@ -6,8 +7,7 @@ export class AppMessageBridge {
         this.ui = null;
         this.resizeFn = null;
         this.queue = [];
-        this.parentOrigin = window.location.origin;
-
+        
         // Bind immediately
         window.addEventListener('message', this.handleMessage.bind(this));
     }
@@ -27,12 +27,8 @@ export class AppMessageBridge {
     }
 
     handleMessage(event) {
-        if (event.source !== window.parent || event.origin !== this.parentOrigin) {
-            return;
-        }
-
         const { action, payload } = event.data;
-
+        
         if (this.app && this.ui) {
             this.dispatch(action, payload, event);
         } else {
@@ -67,8 +63,10 @@ export class AppMessageBridge {
             if (this.ui.modelSelect) {
                 const prev = this.ui.modelSelect.value;
                 this.ui.modelSelect.value = payload;
+                // Safety check: if invalid model, fallback
                 if (this.ui.modelSelect.selectedIndex === -1) {
-                    this.ui.modelSelect.value = prev || (this.ui.modelSelect.options.length > 0 ? this.ui.modelSelect.options[0].value : '');
+                    this.ui.modelSelect.value = prev || (this.ui.modelSelect.options.length > 0 ? this.ui.modelSelect.options[0].value : "");
+                    // Force index 0 if still invalid
                     if (this.ui.modelSelect.selectedIndex === -1 && this.ui.modelSelect.options.length > 0) {
                         this.ui.modelSelect.selectedIndex = 0;
                     }
@@ -89,12 +87,20 @@ export class AppMessageBridge {
             this.ui.settings.updateAccountIndices(payload);
             return;
         }
-
+        if (action === 'RESTORE_APP_VERSION') {
+            this.ui.settings.updateAppVersion(payload);
+            return;
+        }
+        
+        // Note: RESTORE_CONNECTION_SETTINGS is handled by AppController to update Model List
+        
         if (action === 'RESTORE_BROWSER_LOOP_LIMIT') {
+            // Pass to app controller to store state
             this.app.handleIncomingMessage(event);
             return;
         }
 
+        // Forward general messages to App Controller
         this.app.handleIncomingMessage(event);
     }
 }

@@ -1,11 +1,6 @@
 
 // background/managers/history_manager.js
 import { generateUUID } from '../../lib/utils.js';
-import {
-    loadSessions,
-    moveSessionToFront,
-    saveSessions,
-} from './session/history_store.js';
 
 /**
  * Saves a completed interaction to the chat history in local storage.
@@ -16,7 +11,7 @@ import {
  */
 export async function saveToHistory(text, result, filesObj = null) {
     try {
-        const geminiSessions = await loadSessions();
+        const { geminiSessions = [] } = await chrome.storage.local.get(['geminiSessions']);
         
         const sessionId = generateUUID();
         const title = text.length > 30 ? text.substring(0, 30) + "..." : text;
@@ -45,15 +40,19 @@ export async function saveToHistory(text, result, filesObj = null) {
                     role: 'ai',
                     text: result.text,
                     thoughts: result.thoughts, // Save thoughts if present
-                    generatedImages: result.images, // Save generated images
-                    thoughtSignature: result.thoughtSignature // Save context signature for Gemini 3
+                    thoughtsDurationSeconds: result.thoughtsDurationSeconds,
+                    sources: result.sources || null,
+                generatedImages: result.images, // Save generated images
+                thoughtSignature: result.thoughtSignature, // Save context signature for Gemini 3
+                officialContent: result.officialContent || null,
+                suppressCopy: result.suppressCopy === true
                 }
             ],
             context: result.context
         };
 
         geminiSessions.unshift(newSession);
-        await saveSessions(geminiSessions);
+        await chrome.storage.local.set({ geminiSessions });
         
         // Notify Sidepanel to reload if open
         chrome.runtime.sendMessage({ 
@@ -76,8 +75,8 @@ export async function saveToHistory(text, result, filesObj = null) {
  */
 export async function appendAiMessage(sessionId, result) {
     try {
-        const geminiSessions = await loadSessions();
-        const sessionIndex = geminiSessions.findIndex((session) => session.id === sessionId);
+        const { geminiSessions = [] } = await chrome.storage.local.get(['geminiSessions']);
+        const sessionIndex = geminiSessions.findIndex(s => s.id === sessionId);
         
         if (sessionIndex !== -1) {
             const session = geminiSessions[sessionIndex];
@@ -86,19 +85,25 @@ export async function appendAiMessage(sessionId, result) {
                 role: 'ai',
                 text: result.text,
                 thoughts: result.thoughts,
+                thoughtsDurationSeconds: result.thoughtsDurationSeconds,
+                sources: result.sources || null,
                 generatedImages: result.images,
-                thoughtSignature: result.thoughtSignature // Save context signature for Gemini 3
+                thoughtSignature: result.thoughtSignature, // Save context signature for Gemini 3
+                officialContent: result.officialContent || null,
+                suppressCopy: result.suppressCopy === true
             });
             session.context = result.context; // Update context
             session.timestamp = Date.now();
             
-            const updatedSessions = moveSessionToFront(geminiSessions, sessionIndex);
+            // Move to top
+            geminiSessions.splice(sessionIndex, 1);
+            geminiSessions.unshift(session);
             
-            await saveSessions(updatedSessions);
+            await chrome.storage.local.set({ geminiSessions });
             
             chrome.runtime.sendMessage({ 
                 action: "SESSIONS_UPDATED", 
-                sessions: updatedSessions 
+                sessions: geminiSessions 
             }).catch(() => {});
             
             return true;
@@ -110,35 +115,101 @@ export async function appendAiMessage(sessionId, result) {
     }
 }
 
+export async function appendRawMessages(sessionId, messages) {
+    try {
+        if (!sessionId || !Array.isArray(messages) || messages.length === 0) return false;
+
+        const { geminiSessions = [] } = await chrome.storage.local.get(['geminiSessions']);
+        const sessionIndex = geminiSessions.findIndex(s => s.id === sessionId);
+
+        if (sessionIndex === -1) return false;
+
+        const session = geminiSessions[sessionIndex];
+        messages.forEach(message => {
+            if (message && typeof message === 'object') {
+                session.messages.push(message);
+            }
+        });
+        session.timestamp = Date.now();
+
+        geminiSessions.splice(sessionIndex, 1);
+        geminiSessions.unshift(session);
+
+        await chrome.storage.local.set({ geminiSessions });
+
+        chrome.runtime.sendMessage({
+            action: "SESSIONS_UPDATED",
+            sessions: geminiSessions
+        }).catch(() => {});
+
+        return true;
+    } catch (e) {
+        console.error("Error appending raw history messages:", e);
+        return false;
+    }
+}
+
+export async function appendAiMessageIfDisplayable(sessionId, result) {
+    const text = typeof result?.text === 'string' ? result.text : '';
+    const thoughts = typeof result?.thoughts === 'string' ? result.thoughts : '';
+    const hasText = text.trim().length > 0;
+    const hasThoughts = thoughts.trim().length > 0;
+    const hasThoughtSignature = typeof result?.thoughtSignature === 'string'
+        && result.thoughtSignature.trim().length > 0;
+
+    if (!hasText && !hasThoughts && !hasThoughtSignature) {
+        return false;
+    }
+
+    return appendAiMessage(sessionId, {
+        ...result,
+        text,
+        thoughts: hasThoughts ? thoughts : null
+    });
+}
+
 /**
  * Appends a User message (or Tool Output) to an existing session.
  * Used for the automated browser control loop.
  * @param {string} sessionId 
  * @param {string} text 
  * @param {Array} images - Optional array of base64 image strings
+ * @param {object} metadata - Optional structured metadata for non-chat UI rows.
  */
-export async function appendUserMessage(sessionId, text, images = null) {
+export async function appendUserMessage(sessionId, text, images = null, metadata = null) {
     try {
-        const geminiSessions = await loadSessions();
-        const sessionIndex = geminiSessions.findIndex((session) => session.id === sessionId);
+        const { geminiSessions = [] } = await chrome.storage.local.get(['geminiSessions']);
+        const sessionIndex = geminiSessions.findIndex(s => s.id === sessionId);
         
         if (sessionIndex !== -1) {
             const session = geminiSessions[sessionIndex];
             
-            session.messages.push({
+            const message = {
                 role: 'user',
                 text: text,
                 image: images // Store image array if present
-            });
+            };
+
+            if (metadata && typeof metadata === 'object') {
+                Object.entries(metadata).forEach(([key, value]) => {
+                    if (value !== undefined && value !== null && value !== '') {
+                        message[key] = value;
+                    }
+                });
+            }
+
+            session.messages.push(message);
             session.timestamp = Date.now();
             
-            const updatedSessions = moveSessionToFront(geminiSessions, sessionIndex);
+            // Move to top
+            geminiSessions.splice(sessionIndex, 1);
+            geminiSessions.unshift(session);
             
-            await saveSessions(updatedSessions);
+            await chrome.storage.local.set({ geminiSessions });
             
             chrome.runtime.sendMessage({ 
                 action: "SESSIONS_UPDATED", 
-                sessions: updatedSessions 
+                sessions: geminiSessions 
             }).catch(() => {});
             
             return true;
@@ -146,6 +217,73 @@ export async function appendUserMessage(sessionId, text, images = null) {
         return false;
     } catch (e) {
         console.error("Error appending user message:", e);
+        return false;
+    }
+}
+
+/**
+ * Replaces a session snapshot before generation starts.
+ * Keeps background storage aligned with UI-side edits before AI replies are appended.
+ * @param {object} sessionSnapshot
+ */
+export async function replaceSessionSnapshot(sessionSnapshot) {
+    try {
+        if (!sessionSnapshot || !sessionSnapshot.id || !Array.isArray(sessionSnapshot.messages)) {
+            return false;
+        }
+
+        const { geminiSessions = [] } = await chrome.storage.local.get(['geminiSessions']);
+        const sessionIndex = geminiSessions.findIndex(s => s.id === sessionSnapshot.id);
+        const nextSession = {
+            ...sessionSnapshot,
+            timestamp: sessionSnapshot.timestamp || Date.now()
+        };
+
+        if (sessionIndex !== -1) {
+            geminiSessions.splice(sessionIndex, 1);
+        }
+
+        geminiSessions.unshift(nextSession);
+        await chrome.storage.local.set({ geminiSessions });
+
+        chrome.runtime.sendMessage({
+            action: "SESSIONS_UPDATED",
+            sessions: geminiSessions
+        }).catch(() => {});
+
+        return true;
+    } catch (e) {
+        console.error("Error replacing session snapshot:", e);
+        return false;
+    }
+}
+
+export async function getSessionContextSummary(sessionId) {
+    if (!sessionId) return null;
+
+    try {
+        const { geminiSessions = [] } = await chrome.storage.local.get(['geminiSessions']);
+        const session = geminiSessions.find(s => s.id === sessionId);
+        return session?.contextSummary || null;
+    } catch (e) {
+        console.error("Error reading context summary:", e);
+        return null;
+    }
+}
+
+export async function updateSessionContextSummary(sessionId, contextSummary) {
+    if (!sessionId || !contextSummary) return false;
+
+    try {
+        const { geminiSessions = [] } = await chrome.storage.local.get(['geminiSessions']);
+        const sessionIndex = geminiSessions.findIndex(s => s.id === sessionId);
+        if (sessionIndex === -1) return false;
+
+        geminiSessions[sessionIndex].contextSummary = contextSummary;
+        await chrome.storage.local.set({ geminiSessions });
+        return true;
+    } catch (e) {
+        console.error("Error updating context summary:", e);
         return false;
     }
 }

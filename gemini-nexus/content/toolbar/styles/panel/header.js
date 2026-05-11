@@ -1,5 +1,7 @@
 
-export const panelHeaderStyles = `
+(function() {
+    window.GeminiStyles = window.GeminiStyles || {};
+    window.GeminiStyles.PanelHeader = `
         /* --- Standard Header Styles --- */
 
         .ask-header {
@@ -87,3 +89,4 @@ export const panelHeaderStyles = `
             color: #1f1f1f;
         }
     `;
+})();

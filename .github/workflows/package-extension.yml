@@ -1,0 +1,158 @@
+name: Package Extension
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Git ref to build
+        required: false
+        default: main
+      publish_release:
+        description: Publish or update a GitHub Release
+        required: false
+        type: boolean
+        default: false
+      release_tag:
+        description: Release tag to create or update, e.g. v4.2.5
+        required: false
+        type: string
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: gemini-nexus
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.ref || github.ref }}
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: gemini-nexus/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build extension bundle
+        run: npm run package:extension
+
+      - name: Resolve version
+        id: version
+        run: |
+          VERSION=$(node -p "JSON.parse(require('fs').readFileSync('package.json', 'utf8')).version")
+          echo "value=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Create zip artifact
+        run: |
+          mkdir -p artifacts
+          cd artifacts/chrome-extension
+          zip -r "../gemini-nexus-v${{ steps.version.outputs.value }}.zip" .
+
+      - name: Upload packaged extension
+        uses: actions/upload-artifact@v4
+        with:
+          name: gemini-nexus-v${{ steps.version.outputs.value }}
+          path: gemini-nexus/artifacts/gemini-nexus-v${{ steps.version.outputs.value }}.zip
+          if-no-files-found: error
+
+      - name: Resolve release target
+        id: release
+        run: |
+          if [[ "${GITHUB_EVENT_NAME}" == "push" && "${GITHUB_REF}" == refs/tags/* ]]; then
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+            echo "tag=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "publish=${{ github.event.inputs.publish_release }}" >> "$GITHUB_OUTPUT"
+          echo "tag=${{ github.event.inputs.release_tag }}" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve release notes
+        if: steps.release.outputs.publish == 'true'
+        env:
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          if [[ -z "$RELEASE_TAG" ]]; then
+            echo "release_tag is required when publish_release is true" >&2
+            exit 1
+          fi
+
+          NOTES_FILE="$RUNNER_TEMP/release-notes.md"
+          VERSION="${RELEASE_TAG#v}"
+
+          awk -v version="$VERSION" '
+            $0 ~ "^## v?" version "([[:space:]]|-|$)" { capture=1; next }
+            capture && /^## / { exit }
+            capture { print }
+          ' CHANGELOG.md | sed '/^[[:space:]]*$/d' > "$NOTES_FILE"
+
+          if [[ ! -s "$NOTES_FILE" ]]; then
+            echo "No changelog section found for $RELEASE_TAG" >&2
+            exit 1
+          fi
+
+          PREVIOUS_TAG=$(git tag --sort=-version:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | grep -v "^${RELEASE_TAG}$" | head -n 1 || true)
+          {
+            echo
+            if [[ -n "$PREVIOUS_TAG" ]]; then
+              echo "**Full Changelog**: https://github.com/${GITHUB_REPOSITORY}/compare/${PREVIOUS_TAG}...${RELEASE_TAG}"
+            else
+              echo "**Full Changelog**: https://github.com/${GITHUB_REPOSITORY}/releases/tag/${RELEASE_TAG}"
+            fi
+          } >> "$NOTES_FILE"
+
+          echo "RELEASE_NOTES_FILE=$NOTES_FILE" >> "$GITHUB_ENV"
+
+      - name: Create or update GitHub Release
+        if: steps.release.outputs.publish == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+          ZIP_PATH: artifacts/gemini-nexus-v${{ steps.version.outputs.value }}.zip
+          ZIP_NAME: gemini-nexus-v${{ steps.version.outputs.value }}.zip
+        run: |
+          if [[ -z "$RELEASE_TAG" ]]; then
+            echo "release_tag is required when publish_release is true" >&2
+            exit 1
+          fi
+
+          if ! gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release create "$RELEASE_TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "$RELEASE_TAG" \
+              --notes-file "$RELEASE_NOTES_FILE"
+          else
+            gh release edit "$RELEASE_TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --notes-file "$RELEASE_NOTES_FILE"
+          fi
+
+          gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '
+            .assets[]
+            | select(.name | startswith("gemini-nexus-v"))
+            | .name
+          ' | while IFS= read -r asset_name; do
+            if [[ -n "$asset_name" && "$asset_name" != "$ZIP_NAME" ]]; then
+              gh release delete-asset "$RELEASE_TAG" "$asset_name" \
+                --repo "$GITHUB_REPOSITORY" \
+                --yes
+            fi
+          done
+
+          gh release upload "$RELEASE_TAG" "$ZIP_PATH" \
+            --repo "$GITHUB_REPOSITORY" \
+            --clobber

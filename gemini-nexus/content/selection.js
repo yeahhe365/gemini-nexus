@@ -1,7 +1,8 @@
 
 // content/selection.js
 
-export class SelectionObserver {
+(function() {
+    class SelectionObserver {
         constructor(callbacks) {
             this.callbacks = callbacks || {}; // { onSelection, onClear, onClick }
             this.onMouseUp = this.onMouseUp.bind(this);
@@ -54,4 +55,8 @@ export class SelectionObserver {
             document.removeEventListener('mouseup', this.onMouseUp);
             document.removeEventListener('mousedown', this.onMouseDown);
         }
-}
+    }
+
+    // Export to Window
+    window.GeminiSelectionObserver = SelectionObserver;
+})();

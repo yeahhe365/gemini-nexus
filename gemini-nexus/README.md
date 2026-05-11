@@ -28,28 +28,20 @@ Gemini Nexus can optionally connect to an external MCP server (via **SSE** or **
 
 ## Run Locally
 
-**Prerequisites:** Docker or a working local Node.js toolchain.
+**Prerequisites:** Node.js
 
-1. Install dependencies:
-   ```bash
-   npm install
-   ```
+1.  Install dependencies:
+    ```bash
+    npm install
+    ```
 
-2. Build the extension package:
-   ```bash
-   npm run build
-   ```
+2.  Build the extension:
+    ```bash
+    npm run build
+    ```
 
-3. Load the packaged extension into Chrome:
-   *   Open `chrome://extensions/`
-   *   Enable **Developer mode**
-   *   Click **Load unpacked**
-   *   Select the generated `dist` folder
-
-## Quality Checks
-
-```bash
-npm test
-npm run typecheck
-npm run build
-```
+3.  Load into Chrome:
+    *   Open `chrome://extensions/`
+    *   Enable "Developer mode"
+    *   Click "Load unpacked"
+    *   Select the `dist` folder (or root if running in dev mode without bundling).

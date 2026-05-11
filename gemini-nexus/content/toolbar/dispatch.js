@@ -1,7 +1,8 @@
 
 // content/toolbar/dispatch.js
 
-export class ToolbarDispatcher {
+(function() {
+    class ToolbarDispatcher {
         constructor(controller) {
             this.controller = controller;
         }
@@ -166,4 +167,8 @@ export class ToolbarDispatcher {
                 this.ui.showError("Failed to insert text");
             }
         }
-}
+    }
+
+    // Export to Window
+    window.GeminiToolbarDispatcher = ToolbarDispatcher;
+})();

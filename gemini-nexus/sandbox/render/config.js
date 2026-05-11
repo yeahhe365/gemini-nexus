@@ -26,6 +26,10 @@ export function configureMarkdown() {
             lang = codeOrToken.lang || '';
         }
 
+        if (typeof code !== 'string' || code.trim().length === 0) {
+            return '';
+        }
+
         const validLang = (lang && typeof hljs !== 'undefined' && hljs.getLanguage(lang)) ? lang : 'plaintext';
         let highlighted;
         

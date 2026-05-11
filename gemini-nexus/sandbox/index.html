@@ -3,10 +3,31 @@
 <head>
     <meta charset="UTF-8">
     <title>Gemini Nexus UI</title>
+    
+    <!-- CRITICAL: Apply Theme & Lang Immediately from URL before Rendering -->
+    <script>
+        (function() {
+            try {
+                const params = new URLSearchParams(window.location.search);
+                const theme = params.get('theme');
+                const lang = params.get('lang');
 
-    <!-- Apply Theme & Lang before app boot -->
-    <script src="./theme_init.js" type="module"></script>
+                const systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                if (theme === 'dark' || (theme === 'system' && systemDark)) {
+                    document.documentElement.setAttribute('data-theme', 'dark');
+                }
 
+                if (lang && lang !== 'system') {
+                    document.documentElement.lang = lang;
+                } else if (!lang || lang === 'system') {
+                    if (navigator.language.startsWith('zh')) {
+                        document.documentElement.lang = 'zh';
+                    }
+                }
+            } catch(e) {}
+        })();
+    </script>
+    
     <!-- Preconnect to CDN -->
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 

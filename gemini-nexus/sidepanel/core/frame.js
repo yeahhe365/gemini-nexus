@@ -1,3 +1,4 @@
+
 // sidepanel/core/frame.js
 
 export class FrameManager {
@@ -12,8 +13,13 @@ export class FrameManager {
         const cachedTheme = localStorage.getItem('geminiTheme') || 'system';
         const cachedLang = localStorage.getItem('geminiLanguage') || 'system';
 
-        // Set src immediately to start loading HTML
-        this.iframe.src = `../sandbox/index.html?theme=${cachedTheme}&lang=${cachedLang}`;
+        const params = new URLSearchParams({
+            theme: cachedTheme,
+            lang: cachedLang
+        });
+
+        // Set an absolute extension URL to avoid relative-frame navigation errors.
+        this.iframe.src = chrome.runtime.getURL(`sandbox/index.html?${params.toString()}`);
     }
 
     reveal() {
@@ -23,27 +29,15 @@ export class FrameManager {
 
     postMessage(message) {
         if (this.iframe.contentWindow) {
-            this.iframe.contentWindow.postMessage(message, this.getOrigin() || '*');
+            this.iframe.contentWindow.postMessage(message, '*');
         }
     }
 
     getWindow() {
         return this.iframe.contentWindow;
     }
-
-    getOrigin() {
-        try {
-            return new URL(this.iframe.src, window.location.href).origin;
-        } catch {
-            return window.location.origin;
-        }
-    }
-
+    
     isWindow(sourceWindow) {
         return this.iframe.contentWindow && sourceWindow === this.iframe.contentWindow;
-    }
-
-    isOrigin(origin) {
-        return origin === this.getOrigin();
     }
 }

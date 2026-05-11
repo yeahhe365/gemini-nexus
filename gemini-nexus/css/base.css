@@ -6,6 +6,7 @@
     --bg-modal: #ffffff;
     --bg-input: #f0f4f9;
     --bg-input-focus: #ffffff;
+    --bg-setting-panel: rgba(0,0,0,0.03);
     --bg-overlay: rgba(0,0,0,0.4);
     
     --text-primary: #1f1f1f;
@@ -62,6 +63,7 @@
     --bg-modal: #2d2e2f;
     --bg-input: #1e1f20;
     --bg-input-focus: #2d2e2f;
+    --bg-setting-panel: rgba(255,255,255,0.05);
     --bg-overlay: rgba(0,0,0,0.6);
     
     --text-primary: #e3e3e3;

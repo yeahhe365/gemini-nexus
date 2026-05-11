@@ -13,6 +13,7 @@ export class AboutSection {
         const get = (id) => document.getElementById(id);
         this.elements = {
             btnDownloadLogs: get('download-logs'),
+            aboutGroup: get('about-settings-group'),
             starEl: get('star-count'),
             currentVersionEl: get('app-current-version'),
             updateStatusEl: get('app-update-status')
@@ -25,6 +26,22 @@ export class AboutSection {
                 if (this.callbacks.onDownloadLogs) this.callbacks.onDownloadLogs();
             });
         }
+        document.addEventListener('click', (event) => {
+            const link = event.target.closest('#about-settings-group a[href]');
+            if (!link) return;
+
+            if (this.elements.aboutGroup && !this.elements.aboutGroup.contains(link)) return;
+
+            const href = link.getAttribute('href');
+            if (!href || !/^https?:\/\//i.test(href)) return;
+
+            event.preventDefault();
+            event.stopPropagation();
+            window.parent.postMessage({
+                action: 'OPEN_EXTERNAL_URL',
+                payload: { url: href }
+            }, '*');
+        });
     }
 
     displayStars(count) {
@@ -45,6 +62,12 @@ export class AboutSection {
         return this.elements.starEl && this.elements.starEl.dataset.fetched === "true";
     }
 
+    setCurrentVersion(version) {
+        if (this.elements.currentVersionEl) {
+            this.elements.currentVersionEl.textContent = version || "";
+        }
+    }
+
     getCurrentVersion() {
         return this.elements.currentVersionEl ? this.elements.currentVersionEl.textContent : null;
     }
@@ -54,7 +77,7 @@ export class AboutSection {
         if (!updateStatusEl) return;
 
         if (isUpdateAvailable) {
-            updateStatusEl.innerHTML = `<a href="https://github.com/yeahhe365/gemini-nexus/releases" target="_blank" style="color: #d93025; text-decoration: none; border-bottom: 1px dashed;">Update available: ${latest}</a>`;
+            updateStatusEl.innerHTML = `<a href="https://github.com/Maomaoxion/gemini-nexus/releases" target="_blank" style="color: #d93025; text-decoration: none; border-bottom: 1px dashed;">Update available: ${latest}</a>`;
         } else {
             updateStatusEl.textContent = `(Latest: ${latest})`;
             updateStatusEl.style.color = "var(--text-tertiary)";

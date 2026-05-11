@@ -17,7 +17,8 @@ export class SettingsView {
         this.general = new GeneralSection({
             onTextSelectionChange: (val) => this.fire('onTextSelectionChange', val),
             onImageToolsChange: (val) => this.fire('onImageToolsChange', val),
-            onSidebarBehaviorChange: (val) => this.fire('onSidebarBehaviorChange', val)
+            onSidebarBehaviorChange: (val) => this.fire('onSidebarBehaviorChange', val),
+            onSidePanelScopeChange: (val) => this.fire('onSidePanelScopeChange', val)
         });
         
         this.appearance = new AppearanceSection({
@@ -79,7 +80,11 @@ export class SettingsView {
             connection: connectionData,
             textSelection: generalData.textSelection,
             imageTools: generalData.imageTools,
-            accountIndices: generalData.accountIndices
+            accountIndices: generalData.accountIndices,
+            sidebarBehavior: generalData.sidebarBehavior,
+            sidePanelScope: generalData.sidePanelScope,
+            contextMode: generalData.contextMode,
+            contextRecentTurns: generalData.contextRecentTurns
         };
         
         this.fire('onSave', data);
@@ -136,6 +141,14 @@ export class SettingsView {
         this.general.setAccountIndices(val);
     }
 
+    setSidePanelScope(scope) {
+        this.general.setSidePanelScope(scope);
+    }
+
+    setContextSettings(settings) {
+        this.general.setContextSettings(settings);
+    }
+
     // Delegation to Connection
     setConnectionSettings(data) {
         this.connection.setData(data);
@@ -156,6 +169,10 @@ export class SettingsView {
 
     displayUpdateStatus(latest, current, isUpdateAvailable) {
         this.about.displayUpdateStatus(latest, current, isUpdateAvailable);
+    }
+
+    setAppVersion(version) {
+        this.about.setCurrentVersion(version);
     }
 
     fire(event, data) {

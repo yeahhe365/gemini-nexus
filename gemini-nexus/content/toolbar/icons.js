@@ -1,12 +1,13 @@
 
 // content/toolbar/icons.js
 
-const logoUrl = chrome.runtime.getURL("logo.png");
+(function() {
+    const logoUrl = chrome.runtime.getURL("logo.png");
 
-/**
- * Constants for SVGs
- */
-export const toolbarIcons = {
+    /**
+     * Constants for SVGs
+     */
+    window.GeminiToolbarIcons = {
         LOGO: `<img src="${logoUrl}" style="width: 20px; height: 20px; display: block;" alt="Gemini">`,
         DRAG: `<svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="8" cy="4" r="2.5"/><circle cx="8" cy="12" r="2.5"/><circle cx="8" cy="20" r="2.5"/><circle cx="16" cy="4" r="2.5"/><circle cx="16" cy="12" r="2.5"/><circle cx="16" cy="20" r="2.5"/></svg>`,
         ASK: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>`,
@@ -40,4 +41,5 @@ export const toolbarIcons = {
         REMOVE_WATERMARK: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/><path d="m15 15-1-3-2 3-2-3-1 3"/></svg>`,
         UPSCALE: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4"/><path d="M9 3v4"/><path d="M3 5h4"/></svg>`,
         EXPAND: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21 21-6-6m6 6v-4.8m0 4.8h-4.8"/><path d="M3 16.2V21m0 0h4.8M3 21l6-6"/><path d="M21 7.8V3m0 0h-4.8M21 3l-6 6"/><path d="M3 7.8V3m0 0h4.8M3 3l6 6"/></svg>`
-};
+    };
+})();

@@ -10,8 +10,7 @@ export class SnapshotFormatter {
         this.nodeCounter = 0;
 
         // Mappings for boolean capabilities (property name) -> attribute name
-        // Reference: https://github.com/ChromeDevTools/chrome-devtools-mcp
-        // The local formatter intentionally diverges here to prune noisy nodes and keep prompts token-efficient.
+        // Matches chrome-devtools-mcp src/formatters/snapshotFormatter.ts
         this.booleanPropertyMap = {
             disabled: 'disableable',
             expanded: 'expandable',

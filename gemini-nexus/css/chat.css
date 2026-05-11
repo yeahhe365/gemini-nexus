@@ -8,7 +8,7 @@
     padding-bottom: 140px; /* Space for input */
     display: flex; 
     flex-direction: column; 
-    gap: 24px; /* Increased gap for breathing room */
+    gap: 0;
     scroll-behavior: smooth;
 }
 
@@ -45,6 +45,56 @@ body.layout-wide .msg.ai {
     to { opacity: 1; transform: translateY(0); }
 }
 
+.context-compression-notice {
+    display: grid;
+    grid-template-columns: minmax(24px, 1fr) auto minmax(24px, 1fr);
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    color: var(--text-secondary);
+    font-size: 14px;
+    font-weight: 600;
+    animation: fadeIn 0.3s cubic-bezier(0.2, 0, 0, 1) forwards;
+    opacity: 0;
+    transform: translateY(10px);
+}
+
+.context-compression-line {
+    height: 1px;
+    background: var(--border-color);
+    opacity: 0.9;
+}
+
+.context-compression-label {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-width: 0;
+    max-width: 100%;
+    text-align: center;
+}
+
+.context-compression-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-tertiary);
+}
+
+.context-compression-icon svg {
+    width: 16px;
+    height: 16px;
+}
+
+.context-compression-text {
+    overflow-wrap: anywhere;
+}
+
+.context-compression-complete {
+    color: var(--text-secondary);
+}
+
 /* --- User Message (Bubble) --- */
 .msg.user { 
     align-self: flex-end; 
@@ -57,8 +107,159 @@ body.layout-wide .msg.ai {
     overflow: visible; /* Allow copy button to float outside */
 }
 
+.msg.user.editing {
+    padding: 0;
+    background: transparent;
+    white-space: normal;
+}
+
+.msg.user.msg-tool-output {
+    align-self: flex-start;
+    max-width: min(720px, 86%);
+    width: auto;
+    box-sizing: border-box;
+    padding: 8px 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--bg-input) 86%, transparent);
+    color: var(--text-primary);
+    white-space: normal;
+}
+
+.msg.user.msg-tool-status {
+    align-self: flex-start;
+    max-width: min(640px, 82%);
+    width: auto;
+    box-sizing: border-box;
+    padding: 6px 8px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--bg-input) 78%, transparent);
+    color: var(--text-primary);
+    white-space: normal;
+}
+
+.tool-disclosure {
+    min-width: min(360px, 72vw);
+}
+
+.tool-disclosure-toggle {
+    display: flex;
+    align-items: flex-start;
+    gap: 7px;
+    width: 100%;
+    min-width: 0;
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: inherit;
+    line-height: 1.35;
+    text-align: left;
+    cursor: pointer;
+}
+
+.tool-disclosure-toggle:hover .tool-disclosure-title,
+.tool-disclosure-toggle:focus-visible .tool-disclosure-title {
+    color: var(--text-primary);
+}
+
+.tool-disclosure-toggle:focus-visible {
+    outline: 2px solid var(--border-focus);
+    outline-offset: 3px;
+    border-radius: 4px;
+}
+
+.tool-disclosure-arrow {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 14px;
+    width: 14px;
+    height: 18px;
+    color: var(--text-tertiary);
+    font-size: 18px;
+    line-height: 1;
+    transform: rotate(0deg);
+    transition: transform 0.18s ease, color 0.2s;
+}
+
+.tool-disclosure-expanded .tool-disclosure-arrow {
+    transform: rotate(90deg);
+}
+
+.tool-disclosure-main {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 5px 8px;
+    min-width: 0;
+}
+
+.tool-disclosure-title {
+    min-width: 0;
+    color: var(--text-secondary);
+    font-size: 13px;
+    font-weight: 600;
+    overflow-wrap: anywhere;
+}
+
+.tool-disclosure-badge {
+    flex: 0 0 auto;
+    color: var(--text-tertiary);
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.tool-disclosure-failed .tool-disclosure-badge,
+.tool-disclosure-failed .tool-disclosure-title {
+    color: var(--danger, #c62828);
+}
+
+.tool-disclosure-preview {
+    flex: 1 1 100%;
+    min-width: 0;
+    color: var(--text-tertiary);
+    font-size: 12px;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+}
+
+.tool-disclosure-body {
+    margin-top: 8px;
+    margin-left: 6px;
+    padding-left: 14px;
+    border-left: 2px solid var(--border-color);
+}
+
+.tool-disclosure-meta {
+    margin-bottom: 8px;
+    color: var(--text-tertiary);
+    font-size: 12px;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+}
+
+.tool-call-body {
+    margin-bottom: 8px;
+}
+
+.tool-call-body .code-block-wrapper,
+.tool-output-body .code-block-wrapper {
+    margin: 0;
+    max-width: 100%;
+}
+
+.tool-call-body .code-block-wrapper pre,
+.tool-output-body .code-block-wrapper pre {
+    max-height: 220px;
+    padding: 12px;
+    font-size: 12px;
+    line-height: 1.45;
+}
+
 /* User Copy Button - Floating on Hover */
-.msg.user .copy-btn {
+.msg.user .copy-btn,
+.msg.user .edit-btn {
     display: flex;
     position: absolute;
     left: -38px;
@@ -73,24 +274,139 @@ body.layout-wide .msg.ai {
     transition: all 0.2s cubic-bezier(0.25, 0.8, 0.25, 1);
     align-items: center;
     justify-content: center;
+    cursor: pointer;
     padding: 0;
     box-shadow: 0 2px 4px rgba(0,0,0,0.05);
 }
 
-.msg.user:hover .copy-btn {
+.msg.user .edit-btn {
+    bottom: 36px;
+}
+
+.msg.user:hover .copy-btn,
+.msg.user:hover .edit-btn,
+.msg.user.editing .copy-btn,
+.msg.user.editing .edit-btn {
     opacity: 1;
 }
 
-.msg.user .copy-btn:hover {
+.msg.user .copy-btn:hover,
+.msg.user .edit-btn:hover {
     background: var(--btn-hover);
     color: var(--primary);
     transform: scale(1.1);
     border-color: var(--primary);
 }
 
-.msg.user .copy-btn svg {
+.msg.user .copy-btn svg,
+.msg.user .edit-btn svg {
     width: 14px;
     height: 14px;
+}
+
+.message-edit {
+    width: min(560px, 74vw);
+    min-width: min(360px, 74vw);
+    box-sizing: border-box;
+    padding: 8px 8px 8px 16px;
+    border: 1px solid transparent;
+    border-radius: 28px;
+    background: var(--bg-input);
+    transition: all 0.2s cubic-bezier(0.2, 0, 0, 1);
+    white-space: normal;
+}
+
+.message-edit:focus-within {
+    background: var(--bg-input-focus);
+    border-color: var(--border-focus);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.message-edit-input {
+    width: 100%;
+    min-height: 72px;
+    max-height: 260px;
+    box-sizing: border-box;
+    resize: none;
+    overflow-y: auto;
+    padding: 10px 4px 6px 4px;
+    border: none;
+    border-radius: 0;
+    outline: none;
+    background: transparent;
+    color: var(--text-primary);
+    font: inherit;
+    line-height: 1.5;
+}
+
+.message-edit-input:focus {
+    box-shadow: none;
+}
+
+.message-edit-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 2px;
+}
+
+.message-edit-actions button {
+    height: 36px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.message-edit-cancel {
+    padding: 0 12px;
+    border: none;
+    border-radius: 18px;
+    background: transparent;
+    color: var(--text-secondary);
+}
+
+.message-edit-cancel:hover {
+    background: var(--btn-hover);
+    color: var(--text-primary);
+}
+
+.message-edit-save {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background: var(--primary);
+    color: var(--on-primary);
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.message-edit-save:hover {
+    background: var(--primary-hover);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    transform: scale(1.05);
+}
+
+.message-edit-save:active {
+    transform: scale(0.95);
+}
+
+.message-edit-save:disabled {
+    background: var(--btn-hover);
+    color: var(--text-tertiary);
+    cursor: default;
+    box-shadow: none;
+    transform: none;
+}
+
+.message-edit-save svg {
+    width: 18px;
+    height: 18px;
+    transform: translateX(-1px) translateY(1px);
 }
 
 /* --- AI Message (Clean Text) --- */
@@ -102,6 +418,14 @@ body.layout-wide .msg.ai {
     padding: 0 4px; /* Slight indent */
     margin: 0;
     color: var(--text-primary);
+}
+
+#chat-history > :not([hidden]) + :not([hidden]) {
+    margin-top: 24px;
+}
+
+#chat-history > :not([hidden]) + .msg.msg-compact-chain {
+    margin-top: 10px;
 }
 
 .msg.ai .copy-btn {
@@ -120,42 +444,226 @@ body.layout-wide .msg.ai {
 
 /* --- Thinking Process Styles --- */
 .thoughts-container {
-    margin-bottom: 12px;
+    margin: 0 0 12px 0;
+    color: var(--text-secondary);
 }
 
-.thoughts-container details {
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    background: var(--bg-sidebar);
-    overflow: hidden;
+.msg-thinking-only .thoughts-container {
+    margin-bottom: 0;
 }
 
-.thoughts-container summary {
-    padding: 8px 12px;
+.thoughts-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    max-width: 100%;
+    padding: 0;
+    border: none;
+    background: transparent;
     font-size: 13px;
     font-weight: 500;
     color: var(--text-secondary);
+    line-height: 1.4;
     cursor: pointer;
     user-select: none;
     outline: none;
-    background-color: var(--bg-sidebar);
-    transition: background-color 0.2s;
+    transition: color 0.2s;
 }
 
-.thoughts-container summary:hover {
-    background-color: var(--btn-hover);
+.thoughts-toggle:hover,
+.thoughts-toggle:focus-visible {
     color: var(--text-primary);
 }
 
+.thoughts-toggle:focus-visible {
+    box-shadow: 0 0 0 2px var(--border-focus);
+    border-radius: 4px;
+}
+
+.thoughts-arrow {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    height: 14px;
+    flex: 0 0 14px;
+    color: var(--text-tertiary);
+    font-size: 18px;
+    line-height: 1;
+    transform: rotate(0deg);
+    transition: transform 0.18s ease, color 0.2s;
+}
+
+.thoughts-expanded .thoughts-arrow {
+    transform: rotate(90deg);
+}
+
+.thoughts-status {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
 .thoughts-content {
-    padding: 12px;
+    margin-top: 6px;
+    margin-left: 6px;
+    padding: 2px 0 2px 14px;
+    border-left: 2px solid var(--border-color);
     font-size: 13px;
     color: var(--text-secondary);
-    background-color: var(--bg-body);
-    border-top: 1px solid var(--border-color);
-    line-height: 1.5;
+    line-height: 1.55;
     font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-    opacity: 0.9;
+    opacity: 0.88;
+}
+
+.thoughts-content p {
+    margin-bottom: 8px;
+}
+
+.thoughts-content p:last-child {
+    margin-bottom: 0;
+}
+
+.sources-container {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    max-width: 100%;
+    margin-top: 10px;
+    margin-bottom: 4px;
+    padding: 4px 6px;
+    border: 1px solid var(--border-color);
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--bg-sidebar) 75%, transparent);
+    color: var(--text-secondary);
+}
+
+.sources-label {
+    flex: 0 0 auto;
+    margin-bottom: 0;
+    padding-left: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0;
+    color: var(--text-secondary);
+}
+
+.sources-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    min-width: 0;
+}
+
+.source-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    max-width: min(220px, 58vw);
+    min-width: 0;
+    padding: 4px 8px 4px 5px;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    background: var(--bg-body);
+    color: var(--text-secondary);
+    font-size: 12px;
+    line-height: 1.25;
+    text-decoration: none;
+    overflow: hidden;
+    white-space: nowrap;
+}
+
+.source-link:hover {
+    background: var(--btn-hover);
+    border-color: var(--primary);
+    color: var(--text-primary);
+}
+
+.source-index {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    width: 16px;
+    height: 16px;
+    border-radius: 999px;
+    background: var(--bg-sidebar);
+    color: var(--text-tertiary);
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.source-text {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 5px;
+    min-width: 0;
+}
+
+.source-title,
+.source-domain {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.source-title {
+    color: var(--text-primary);
+}
+
+.source-domain {
+    flex: 0 1 auto;
+    max-width: 90px;
+    color: var(--text-tertiary);
+    font-size: 11px;
+}
+
+.source-link-hidden {
+    display: none;
+}
+
+.sources-expanded .source-link-hidden {
+    display: inline-flex;
+}
+
+.sources-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    background: var(--bg-body);
+    color: var(--text-secondary);
+    font-size: 12px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.sources-toggle:hover {
+    background: var(--btn-hover);
+    border-color: var(--primary);
+    color: var(--primary);
+}
+
+@media (max-width: 430px) {
+    .sources-container {
+        align-items: flex-start;
+        border-radius: 14px;
+    }
+
+    .sources-list {
+        flex: 1 1 auto;
+    }
+
+    .source-link {
+        max-width: 100%;
+    }
 }
 
 /* Shared Button Styles */
@@ -215,6 +723,20 @@ body.layout-wide .msg.ai {
 
 .msg.ai p { margin: 0 0 12px 0; }
 .msg.ai p:last-child { margin-bottom: 0; }
+
+.msg-content a {
+    color: var(--primary);
+    text-decoration-color: color-mix(in srgb, var(--primary) 55%, transparent);
+    text-underline-offset: 2px;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+
+.msg-content a:hover,
+.msg-content a:focus-visible {
+    color: var(--primary-hover);
+    text-decoration-color: currentColor;
+}
 
 /* Headings */
 .msg.ai h1, .msg.ai h2, .msg.ai h3 {

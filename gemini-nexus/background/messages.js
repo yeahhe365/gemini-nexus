@@ -10,11 +10,12 @@ import { UIMessageHandler } from './handlers/ui.js';
  * @param {BrowserControlManager} controlManager
  * @param {McpRemoteManager} mcpManager
  * @param {LogManager} logManager
+ * @param {SidePanelScopeManager} sidePanelScopeManager
  */
-export function setupMessageListener(sessionManager, imageHandler, controlManager, mcpManager, logManager) {
+export function setupMessageListener(sessionManager, imageHandler, controlManager, mcpManager, logManager, sidePanelScopeManager) {
     
     const sessionHandler = new SessionMessageHandler(sessionManager, imageHandler, controlManager, mcpManager);
-    const uiHandler = new UIMessageHandler(imageHandler, controlManager, mcpManager);
+    const uiHandler = new UIMessageHandler(imageHandler, controlManager, mcpManager, sidePanelScopeManager);
 
     chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         
