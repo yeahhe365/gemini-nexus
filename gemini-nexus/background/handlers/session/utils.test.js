@@ -24,7 +24,7 @@ describe('session tool utilities', () => {
     it('splits only trailing tool calls and preserves user-visible text', () => {
         expect(splitToolCallFromText('I will click now.\n```json\n{"tool":"click","args":{"uid":"btn-1"}}\n```')).toEqual({
             displayText: 'I will click now.',
-            toolCallText: '```json\n{"tool":"click","args":{"uid":"btn-1"}}\n```',
+            toolCallText: '{"tool":"click","args":{"uid":"btn-1"}}',
             hasToolCall: true
         });
 

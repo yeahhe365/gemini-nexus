@@ -125,6 +125,11 @@ Use shared CSS files and existing CSS variables. Do not add frontend runtime sty
 - `callIndex` and `callCount` identify multiple tool calls in the same response. They must be persisted and restored so reopened sessions keep the same metadata.
 - Tool status/output keys must include `callIndex` when `callCount > 1` to avoid same-name tool calls overwriting each other.
 - Thinking-only assistant messages and adjacent tool disclosures should use explicit render classes for compact spacing. Do not depend on `:has()` selectors or negative margins for this relationship.
+- Tool-call protocol JSON parsing must go through the shared `lib/tool_call_text.js` helpers. Do not maintain separate background and sandbox regex parsers for the same stream text.
+- `toolCallText` passed to disclosure rendering must be normalized JSON object text without markdown fences. The disclosure renderer owns re-wrapping it for display.
+- Streaming assistant text should hide plausible in-progress tool-call prefixes only within a short uncertainty budget before the JSON object is complete. If the partial JSON later proves not to be a tool call, or stays ambiguous past the budget, it should become visible as ordinary assistant content.
+- Once a partial object has confirmed the tool protocol shape (`tool` plus `args`), keep it out of assistant markdown until the tool disclosure owns the display.
+- Empty fenced code blocks must not render code-block chrome such as copy buttons. Markdown code rendering should return no wrapper for whitespace-only code content.
 
 ### 4. Validation & Error Matrix
 
@@ -132,12 +137,17 @@ Use shared CSS files and existing CSS variables. Do not add frontend runtime sty
 - Missing `callIndex` / `callCount` -> render as a single-call tool output and omit the call counter.
 - Same tool name appears multiple times in one response -> status/output keys must remain distinct.
 - Restored legacy messages without metadata -> recover `toolName` and `step` from the saved `[Tool Output: ...]` text when possible.
+- Adjacent or malformed fences around consumed tool-call JSON, such as ``````json between calls, -> strip the consumed tool-call sequence from assistant markdown and keep only the final prose visible.
+- Early stream chunks like ```json, ```json followed by `{`, or a partial `{"tool": ...` object -> keep assistant markdown empty only while they remain within the uncertainty budget, instead of flashing a normal JSON code block.
+- Long ambiguous JSON/code blocks without a confirmed tool protocol shape -> release to assistant markdown so normal long-code streaming is not delayed until generation finishes.
+- Empty or whitespace-only fenced code blocks -> render nothing, not a copy-only code block.
 
 ### 5. Good/Base/Bad Cases
 
 - Good: A Gemini response with two `functionCall` parts creates two tool disclosures with the same `step` and `Call 1/2`, `Call 2/2` metadata.
 - Base: A text-based tool command creates one status disclosure and one output disclosure without a call counter.
 - Bad: Raw `{"tool": ...}` JSON appears as normal assistant markdown, tool output replaces the thinking block, or the same-name second tool call reuses the first status block.
+- Bad: The sandbox keeps its own tool-call splitting regex and leaves an opening ```json marker in the visible assistant stream after the background already executed the tool.
 
 ### 6. Tests Required
 
@@ -145,6 +155,9 @@ Use shared CSS files and existing CSS variables. Do not add frontend runtime sty
 - Assert runtime status/output keys differ for same-name multi-call tools.
 - Assert restored tool-output messages pass `toolCallIndex` and `toolCallCount` back into `appendMessage`.
 - Assert thinking-only and tool disclosures receive compact spacing classes without relying on CSS `:has()`.
+- Assert adjacent/malformed fenced tool-call blocks are stripped from streamed assistant markdown while final prose remains visible.
+- Assert streaming-only partial tool-call prefixes do not render as normal code blocks, non-tool JSON prefixes become visible once they no longer match the tool-call shape, and long ambiguous prefixes are released before generation finishes.
+- Assert empty fenced code blocks do not produce `.copy-code-btn` or code-block wrappers.
 
 ### 7. Wrong vs Correct
 

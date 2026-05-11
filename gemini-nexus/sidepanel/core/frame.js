@@ -13,8 +13,13 @@ export class FrameManager {
         const cachedTheme = localStorage.getItem('geminiTheme') || 'system';
         const cachedLang = localStorage.getItem('geminiLanguage') || 'system';
 
-        // Set src immediately to start loading HTML
-        this.iframe.src = `../sandbox/index.html?theme=${cachedTheme}&lang=${cachedLang}`;
+        const params = new URLSearchParams({
+            theme: cachedTheme,
+            lang: cachedLang
+        });
+
+        // Set an absolute extension URL to avoid relative-frame navigation errors.
+        this.iframe.src = chrome.runtime.getURL(`sandbox/index.html?${params.toString()}`);
     }
 
     reveal() {

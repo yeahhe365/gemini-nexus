@@ -132,3 +132,89 @@ describe('MessageHandler.handleGeminiReply', () => {
         expect(appendMessage).not.toHaveBeenCalled();
     });
 });
+
+describe('MessageHandler.handleStreamUpdate', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+    });
+
+    it('keeps consumed tool call JSON out of the assistant markdown stream', () => {
+        const { handler } = createMessageHandlerHarness();
+        const streamedText = `{
+  "tool": "fill",
+  "args": {
+    "uid": "1_43",
+    "value": "168168\\n518518"
+  }
+}
+\`\`\`\`\`\`json
+{
+  "tool": "click",
+  "args": {
+    "uid": "1_44"
+  }
+}
+\`\`\`\`\`\`json
+{
+  "tool": "take_snapshot",
+  "args": {}
+}
+\`\`\`对于六位纯数字的 .xyz 域名，价格通常很便宜。`;
+
+        handler.handleStreamUpdate({
+            action: 'GEMINI_STREAM_UPDATE',
+            sessionId: 'session-1',
+            text: streamedText
+        });
+
+        const controller = appendMessage.mock.results[0].value;
+        expect(controller.update).toHaveBeenLastCalledWith(
+            '对于六位纯数字的 .xyz 域名，价格通常很便宜。',
+            undefined,
+            { isStreaming: true }
+        );
+    });
+
+    it('does not flash a JSON code block for early streaming tool-call prefixes', () => {
+        const { handler } = createMessageHandlerHarness();
+
+        handler.handleStreamUpdate({
+            action: 'GEMINI_STREAM_UPDATE',
+            sessionId: 'session-1',
+            text: '```json\n{'
+        });
+
+        const controller = appendMessage.mock.results[0].value;
+        expect(controller.update).toHaveBeenLastCalledWith(
+            '',
+            undefined,
+            { isStreaming: true }
+        );
+    });
+
+    it('finalizes intermediate tool-call text without a copy button', () => {
+        const { handler } = createMessageHandlerHarness();
+
+        handler.handleStreamUpdate({
+            action: 'GEMINI_STREAM_UPDATE',
+            sessionId: 'session-1',
+            text: '好的，我先检查一下配置状态。\n```json\n{"tool":"get_config_info","args":{}}',
+            thoughts: '需要先调用配置工具。'
+        });
+
+        const controller = appendMessage.mock.results[0].value;
+        handler.handleToolCallStatusMessage({
+            action: 'TOOL_CALL_STATUS_MESSAGE',
+            sessionId: 'session-1',
+            toolName: 'get_config_info',
+            status: 'running',
+            toolCallText: '{"tool":"get_config_info","args":{}}'
+        });
+
+        expect(controller.finalize).toHaveBeenCalledWith(
+            '好的，我先检查一下配置状态。',
+            undefined,
+            { suppressCopy: true }
+        );
+    });
+});

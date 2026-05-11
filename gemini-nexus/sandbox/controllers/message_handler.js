@@ -2,6 +2,10 @@
 // sandbox/controllers/message_handler.js
 import { appendContextCompressionNotice, appendMessage } from '../render/message.js';
 import { cropImage } from '../../lib/crop_utils.js';
+import {
+    isToolCallOnlyText,
+    splitToolCallFromText
+} from '../../lib/tool_call_text.js';
 import { t } from '../core/i18n.js';
 import { WatermarkRemover } from '../../lib/watermark_remover.js';
 
@@ -11,176 +15,6 @@ function hasDisplayableThoughts(thoughts) {
 
 function hasDisplayableText(text) {
     return typeof text === 'string' ? text.trim().length > 0 : Boolean(text);
-}
-
-function parseJsonObject(text) {
-    try {
-        const parsed = JSON.parse(text);
-        return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : null;
-    } catch (_) {
-        return null;
-    }
-}
-
-function stripJsonFence(text) {
-    const trimmed = typeof text === 'string' ? text.trim() : '';
-    if (!trimmed.startsWith('```')) return trimmed;
-
-    const opening = trimmed.match(/^```(?:json)?\s*/i);
-    if (!opening) return trimmed;
-
-    const body = trimmed.slice(opening[0].length);
-    const closing = body.match(/\s*```\s*$/);
-    return closing ? body.slice(0, closing.index).trim() : body.trim();
-}
-
-function isPlainObject(value) {
-    return value && typeof value === 'object' && !Array.isArray(value);
-}
-
-function isPlaceholderToolName(toolName) {
-    const normalized = typeof toolName === 'string'
-        ? toolName.trim().toLowerCase().replace(/[\s-]+/g, '_')
-        : '';
-    return !normalized || ['tool', 'tool_name', 'name', 'example_tool'].includes(normalized);
-}
-
-function isCompleteToolCallObject(value) {
-    return isPlainObject(value)
-        && typeof value.tool === 'string'
-        && !isPlaceholderToolName(value.tool)
-        && isPlainObject(value.args);
-}
-
-function isLikelyPartialToolCall(candidate) {
-    const text = typeof candidate === 'string' ? candidate.trim() : '';
-    if (!text || !text.startsWith('{')) return false;
-    if (!/"tool"\s*:/.test(text)) return false;
-
-    const toolMatch = text.match(/"tool"\s*:\s*"([^"]*)/);
-    const hasToolString = Boolean(toolMatch && !isPlaceholderToolName(toolMatch[1]));
-    const hasArgsKey = /"args"\s*:/.test(text);
-    const isIncomplete = !text.endsWith('}');
-    return hasToolString && hasArgsKey && isIncomplete;
-}
-
-function isToolCallCandidate(text) {
-    const trimmed = typeof text === 'string' ? text.trim() : '';
-    if (!trimmed) return false;
-
-    const candidate = stripJsonFence(trimmed);
-    const parsed = parseJsonObject(candidate);
-
-    if (isCompleteToolCallObject(parsed)) return true;
-
-    return isLikelyPartialToolCall(candidate);
-}
-
-function isToolCallOnlyText(text) {
-    return isToolCallCandidate(text);
-}
-
-function findTrailingFencedToolCall(text) {
-    const value = typeof text === 'string' ? text : '';
-    const fencePattern = /(^|\n)([ \t]*```(?:json)?[ \t]*\n?[\s\S]*?\n?```[ \t]*)/gi;
-    let match;
-    let trailingMatch = null;
-    while ((match = fencePattern.exec(value)) !== null) {
-        if (value.slice(fencePattern.lastIndex).trim() === '') {
-            trailingMatch = {
-                start: match.index + match[1].length,
-                block: match[2]
-            };
-        }
-    }
-    if (!trailingMatch) return null;
-
-    const block = trailingMatch.block;
-    if (!isToolCallCandidate(block)) return null;
-
-    return {
-        start: trailingMatch.start,
-        end: value.length,
-        toolCallText: block.trim()
-    };
-}
-
-function findTrailingPartialFencedToolCall(text) {
-    const value = typeof text === 'string' ? text : '';
-    const fenceStartPattern = /(^|\n)([ \t]*```(?:json)?[ \t]*\n?)/gi;
-    let match;
-    let lastStart = null;
-    while ((match = fenceStartPattern.exec(value)) !== null) {
-        lastStart = {
-            start: match.index + match[1].length,
-            prefixEnd: fenceStartPattern.lastIndex
-        };
-    }
-    if (!lastStart) return null;
-
-    const block = value.slice(lastStart.start);
-    if (block.trim().endsWith('```')) return null;
-    if (!isToolCallCandidate(block)) return null;
-
-    return {
-        start: lastStart.start,
-        end: value.length,
-        toolCallText: block.trim()
-    };
-}
-
-function findTrailingBareToolCall(text) {
-    const value = typeof text === 'string' ? text : '';
-    const toolPattern = /"tool"\s*:/g;
-    const matches = [...value.matchAll(toolPattern)];
-
-    for (let i = matches.length - 1; i >= 0; i--) {
-        const toolIndex = matches[i].index;
-        const start = value.lastIndexOf('{', toolIndex);
-        if (start === -1) continue;
-
-        const before = value.slice(0, start);
-        if (before.trim() && !/\n\s*$/.test(before)) continue;
-
-        const suffix = value.slice(start).trimEnd();
-        if (isToolCallCandidate(suffix)) {
-            return {
-                start,
-                end: value.length,
-                toolCallText: suffix.trim()
-            };
-        }
-    }
-
-    return null;
-}
-
-function splitToolCallFromText(text) {
-    const value = typeof text === 'string' ? text : '';
-    if (!value.trim()) {
-        return {
-            displayText: value,
-            toolCallText: '',
-            hasToolCall: false
-        };
-    }
-
-    const match = findTrailingFencedToolCall(value)
-        || findTrailingPartialFencedToolCall(value)
-        || findTrailingBareToolCall(value);
-    if (!match) {
-        return {
-            displayText: value,
-            toolCallText: '',
-            hasToolCall: false
-        };
-    }
-
-    return {
-        displayText: value.slice(0, match.start).trimEnd(),
-        toolCallText: match.toolCallText,
-        hasToolCall: true
-    };
 }
 
 export class MessageHandler {
@@ -344,7 +178,7 @@ export class MessageHandler {
 
         if (request.text !== undefined) {
             const rawText = request.text || "";
-            const split = splitToolCallFromText(rawText);
+            const split = splitToolCallFromText(rawText, { allowPartial: true });
             next.rawText = rawText;
             next.text = split.displayText;
             if (split.hasToolCall) {
@@ -530,7 +364,7 @@ export class MessageHandler {
         }
 
         this.finalizeActiveStream({
-            text: request.toolCallText || this.getStreamRawText(sessionId),
+            text: this.getStreamRawText(sessionId) || request.toolCallText,
             thoughts: this.getStreamThoughts(sessionId),
             clearToolCallJson: true
         });
@@ -590,7 +424,7 @@ export class MessageHandler {
         const sessionId = this.getRequestSessionId(request);
         const toolCallText = this.getRequestToolCallText(request, sessionId);
         this.finalizeActiveStream({
-            text: request.toolCallText || this.getStreamRawText(sessionId),
+            text: this.getStreamRawText(sessionId) || request.toolCallText,
             thoughts: this.getStreamThoughts(sessionId),
             clearToolCallJson: true
         });
@@ -637,12 +471,13 @@ export class MessageHandler {
         if (!this.streamingBubble) return;
         let finalText;
         if (state.clearToolCallJson) {
-            const split = splitToolCallFromText(state.text || "");
+            const split = splitToolCallFromText(state.text || "", { allowPartial: true });
             if (split.hasToolCall) {
                 finalText = split.displayText;
-            } else if (isToolCallOnlyText(state.text)) {
+            } else if (isToolCallOnlyText(state.text, { allowPartial: true })) {
                 finalText = "";
             }
+            finalText = finalText || "";
         }
         if (state.clearToolCallJson && !hasDisplayableText(finalText) && !hasDisplayableThoughts(state.thoughts)) {
             if (typeof this.streamingBubble.dispose === 'function') {
@@ -655,7 +490,9 @@ export class MessageHandler {
             return;
         }
         if (typeof this.streamingBubble.finalize === 'function') {
-            this.streamingBubble.finalize(finalText, undefined);
+            this.streamingBubble.finalize(finalText, undefined, {
+                suppressCopy: state.clearToolCallJson === true
+            });
         } else if (typeof this.streamingBubble.dispose === 'function') {
             this.streamingBubble.dispose();
         }
@@ -668,7 +505,7 @@ export class MessageHandler {
         if (typeof state?.toolCallText === 'string' && state.toolCallText.trim()) {
             return state.toolCallText;
         }
-        const split = splitToolCallFromText(state?.rawText || state?.text || "");
+        const split = splitToolCallFromText(state?.rawText || state?.text || "", { allowPartial: true });
         return split.toolCallText;
     }
 
@@ -686,9 +523,9 @@ export class MessageHandler {
 
     getRequestToolCallText(request, sessionId) {
         const requestText = typeof request?.toolCallText === 'string' ? request.toolCallText : "";
-        const split = splitToolCallFromText(requestText);
+        const split = splitToolCallFromText(requestText, { allowPartial: true });
         if (split.hasToolCall) return split.toolCallText;
-        if (isToolCallOnlyText(requestText)) return requestText.trim();
+        if (isToolCallOnlyText(requestText, { allowPartial: true })) return requestText.trim();
         return this.getStreamToolCallText(sessionId);
     }
 

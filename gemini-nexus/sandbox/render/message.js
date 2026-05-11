@@ -411,19 +411,25 @@ export function appendMessage(container, text, role, attachment = null, thoughts
         return wrapper;
     };
 
-    const hasCopyableMessageText = () => {
-        if (isToolMessageKind(options.kind)) return false;
-        const copyText = role === 'ai'
+    const getVisibleMessageText = () => {
+        return role === 'ai'
             ? cleanupStructuredSourceText(currentText, currentSources)
             : currentText;
-        return hasDisplayableText(copyText);
+    };
+
+    const hasCopyableMessageText = () => {
+        if (isToolMessageKind(options.kind)) return false;
+        if (options.suppressCopy === true) return false;
+        return hasDisplayableText(getVisibleMessageText());
+    };
+
+    const getCopyText = () => {
+        return getVisibleMessageText();
     };
 
     const getSpacingKind = () => {
         if (isToolMessageKind(options.kind)) return 'tool';
-        const displayText = role === 'ai'
-            ? cleanupStructuredSourceText(currentText, currentSources)
-            : currentText;
+        const displayText = getVisibleMessageText();
         if (role === 'ai' && hasDisplayableThoughts(currentThoughts) && !hasDisplayableText(displayText)) {
             return 'thinking';
         }
@@ -464,8 +470,7 @@ export function appendMessage(container, text, role, attachment = null, thoughts
 
         button.addEventListener('click', async () => {
             try {
-                // Use currentText closure to get latest streaming text.
-                await copyToClipboard(currentText);
+                await copyToClipboard(getCopyText());
                 button.innerHTML = checkIcon;
                 setTimeout(() => {
                     button.innerHTML = copyIcon;
@@ -839,13 +844,14 @@ export function appendMessage(container, text, role, attachment = null, thoughts
                 if (state.callCount !== undefined) {
                     options.callCount = state.callCount;
                 }
+                if (state.suppressCopy !== undefined) {
+                    options.suppressCopy = state.suppressCopy === true;
+                }
                 renderMessageContent();
                 syncCopyButton();
             }
             
-            const displayText = role === 'ai'
-                ? cleanupStructuredSourceText(currentText, currentSources)
-                : currentText;
+            const displayText = getVisibleMessageText();
             updateThoughts(newThoughts, {
                 ...state,
                 hasDisplayableText: hasDisplayableText(displayText)
@@ -859,6 +865,9 @@ export function appendMessage(container, text, role, attachment = null, thoughts
         finalize: (newText, newThoughts, state = {}) => {
             if (newText !== undefined) {
                 currentText = newText;
+                if (state.suppressCopy !== undefined) {
+                    options.suppressCopy = state.suppressCopy === true;
+                }
                 renderMessageContent();
                 syncCopyButton();
             }

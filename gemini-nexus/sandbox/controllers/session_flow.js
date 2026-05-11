@@ -54,6 +54,7 @@ export class SessionFlowController {
                 toolCallText: this.getRestoredToolCallText(msg),
                 callIndex: this.getRestoredToolCallIndex(msg),
                 callCount: this.getRestoredToolCallCount(msg),
+                suppressCopy: msg.suppressCopy === true,
                 isCollapsed: true,
                 thoughtsDurationSeconds: msg.thoughtsDurationSeconds,
                 autoScroll: false,

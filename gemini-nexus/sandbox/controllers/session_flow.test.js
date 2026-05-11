@@ -133,6 +133,39 @@ describe('SessionFlowController', () => {
         expect(ui.resetInput).toHaveBeenCalled();
     });
 
+    it('passes suppressCopy when restoring intermediate AI tool-call messages', () => {
+        const { controller, sessionManager, ui } = createSessionFlowHarness();
+        sessionManager.setSessions([
+            realSession({
+                messages: [
+                    { role: 'user', text: 'Hello' },
+                    {
+                        role: 'ai',
+                        text: '我来检查一下配置状态。',
+                        thoughts: '需要调用工具。',
+                        suppressCopy: true
+                    }
+                ]
+            })
+        ]);
+
+        controller.switchToSession('session-1');
+
+        expect(appendMessage).toHaveBeenNthCalledWith(
+            2,
+            ui.historyDiv,
+            '我来检查一下配置状态。',
+            'ai',
+            undefined,
+            '需要调用工具。',
+            undefined,
+            expect.objectContaining({
+                suppressCopy: true,
+                autoScroll: false
+            })
+        );
+    });
+
     it('restores a supplied scroll state after rebuilding a session', () => {
         const { app, controller, sessionManager, ui } = createSessionFlowHarness();
         const scrollState = { scrollTop: 320, isNearBottom: false };

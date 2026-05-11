@@ -42,9 +42,10 @@ export async function saveToHistory(text, result, filesObj = null) {
                     thoughts: result.thoughts, // Save thoughts if present
                     thoughtsDurationSeconds: result.thoughtsDurationSeconds,
                     sources: result.sources || null,
-                    generatedImages: result.images, // Save generated images
-                    thoughtSignature: result.thoughtSignature, // Save context signature for Gemini 3
-                    officialContent: result.officialContent || null
+                generatedImages: result.images, // Save generated images
+                thoughtSignature: result.thoughtSignature, // Save context signature for Gemini 3
+                officialContent: result.officialContent || null,
+                suppressCopy: result.suppressCopy === true
                 }
             ],
             context: result.context
@@ -88,7 +89,8 @@ export async function appendAiMessage(sessionId, result) {
                 sources: result.sources || null,
                 generatedImages: result.images,
                 thoughtSignature: result.thoughtSignature, // Save context signature for Gemini 3
-                officialContent: result.officialContent || null
+                officialContent: result.officialContent || null,
+                suppressCopy: result.suppressCopy === true
             });
             session.context = result.context; // Update context
             session.timestamp = Date.now();

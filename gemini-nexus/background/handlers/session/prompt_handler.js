@@ -44,6 +44,14 @@ function createIntermediateAiResult(result) {
     };
 }
 
+function createCopySuppressedIntermediateAiResult(result) {
+    const intermediate = createIntermediateAiResult(result);
+    return {
+        ...intermediate,
+        suppressCopy: true
+    };
+}
+
 function detectPromptLanguage(text) {
     const value = typeof text === 'string' ? text : '';
     const zhMatches = value.match(/[\u3400-\u9fff]/g) || [];
@@ -219,7 +227,7 @@ export class PromptHandler {
                     if (pendingToolCommand && request.sessionId) {
                         await appendAiMessageIfDisplayable(
                             request.sessionId,
-                            createIntermediateAiResult(result)
+                            createCopySuppressedIntermediateAiResult(result)
                         );
                     }
 
