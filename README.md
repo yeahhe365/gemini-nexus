@@ -1,5 +1,5 @@
 <div align="center">
-  <a href="https://github.com/Maomaoxion/gemini-nexus">
+  <a href="https://github.com/yeahhe365/Gemini-Nexus">
     <img src="https://github.com/user-attachments/assets/5c5c1f06-7fb2-43b7-b467-f08680d76e70" width="160" height="160" alt="Gemini Nexus Logo">
   </a>
 
@@ -126,7 +126,7 @@ Gemini Nexus 可以选择连接到一个或多个外部 MCP 服务器（通过 *
 
 ### 安装步骤
 
-1.  从 [Releases](https://github.com/Maomaoxion/gemini-nexus/releases) 下载最新 ZIP 包并解压。
+1.  从 [Releases](https://github.com/yeahhe365/Gemini-Nexus/releases) 下载最新 ZIP 包并解压。
 2.  Chrome 访问 `chrome://extensions/`，右上角开启 **“开发者模式”**。
 3.  点击 **“加载已解压的扩展程序”**，选择解压后的文件夹即可。
 
