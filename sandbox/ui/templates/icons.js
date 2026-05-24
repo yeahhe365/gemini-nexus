@@ -128,6 +128,21 @@ export const TemplateIcons = {
             <path d="M18.4 2.6a2.1 2.1 0 0 1 3 3L12 15l-4 1 1-4Z"></path>
         </svg>
     `,
+    NEW_GROUP: icon`
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"
+            viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20 17a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3.9a2 2 0 0 1-1.69-.9l-.81-1.2a2 2 0 0 0-1.67-.9H8a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2Z"></path>
+            <path d="M2 8v11a2 2 0 0 0 2 2h14"></path>
+        </svg>
+    `,
+    CHEVRON_DOWN: icon`
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
+            viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+            stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 12 15 18 9"></polyline>
+        </svg>
+    `,
     MORE_HORIZONTAL: icon`
         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18"
             viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
@@ -261,6 +276,17 @@ export const TemplateIcons = {
                 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
         </svg>
     `,
+    SHARE: icon`
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
+            viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="18" cy="5" r="3"></circle>
+            <circle cx="6" cy="12" r="3"></circle>
+            <circle cx="18" cy="19" r="3"></circle>
+            <path d="M8.59 13.51 15.42 17.49"></path>
+            <path d="M15.41 6.51 8.59 10.49"></path>
+        </svg>
+    `,
     SNIP: icon`
         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14"
             viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
@@ -275,6 +301,13 @@ export const TemplateIcons = {
             stroke-linecap="round" stroke-linejoin="round">
             <path d="M2 6h20v13a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6z"/>
             <path d="M2 6l2.5-3.5A2 2 0 0 1 6.1 1h11.8a2 2 0 0 1 1.6 1.5L22 6"/>
+        </svg>
+    `,
+    ZAP: icon`
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18"
+            viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
         </svg>
     `,
     TRANSLATE: icon`
@@ -364,6 +397,25 @@ export const TemplateIcons = {
             <circle cx="12" cy="12" r="10"></circle>
             <line x1="12" y1="16" x2="12" y2="12"></line>
             <line x1="12" y1="8" x2="12.01" y2="8"></line>
+        </svg>
+    `,
+    PIN: icon`
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
+            viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 17v5"></path>
+            <path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a3 3 0 0 1 .88-2.12l.83-.83A1 1 0 0 0 16 2H8a1 1 0 0 0-.71 1.71l.83.83A3 3 0 0 1 9 7z"></path>
+        </svg>
+    `,
+    PIN_OFF: icon`
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
+            viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 17v5"></path>
+            <path d="M15 10.34V7a3 3 0 0 1 .88-2.12l.71-.71"></path>
+            <path d="m2 2 20 20"></path>
+            <path d="M9 9.76v1a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h11"></path>
+            <path d="M12.54 2H8a1 1 0 0 0-.71 1.71l.83.83A3 3 0 0 1 9 6.66"></path>
         </svg>
     `,
 };

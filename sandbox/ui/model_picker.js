@@ -213,9 +213,10 @@ function createModelPickerController(select, elements) {
     };
 
     controller.trigger.addEventListener('click', () => controller.toggle());
-    controller.wrapper.addEventListener('keydown', (keyboardEvent) =>
-        controller.handleKeyDown(keyboardEvent)
-    );
+    controller.wrapper.addEventListener('keydown', (keyboardEvent) => {
+        if (keyboardEvent.target?.closest?.('#web-thinking-toggle')) return;
+        controller.handleKeyDown(keyboardEvent);
+    });
     select.addEventListener('change', () => controller.sync());
     document.addEventListener('click', (clickEvent) => {
         if (!controller.isOpen) return;

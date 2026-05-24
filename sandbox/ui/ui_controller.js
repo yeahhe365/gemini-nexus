@@ -6,6 +6,7 @@ import { TabSelectorController } from './tab_selector.js';
 import { createModelOptions, getPreferredModel } from './model_options.js';
 import { resizeSelectToSelectedOption } from './model_select_width.js';
 import { syncModelPicker } from './model_picker.js';
+import { syncWebThinkingToggle } from './web_thinking_toggle.js';
 
 export class UIController {
     constructor(elements) {
@@ -36,8 +37,13 @@ export class UIController {
         this.historyDiv = this.chat.historyDiv;
         this.sendBtn = this.chat.sendBtn;
         this.modelSelect = elements.modelSelect;
+        this.webThinkingToggle = document.getElementById('web-thinking-toggle');
         this.tabSwitcherBtn = document.getElementById('tab-switcher-btn');
         window.addEventListener('resize', () => this.scheduleLayoutCheck());
+        document.addEventListener('gemini-language-changed', () =>
+            this.updateWebThinkingToggle(this.settings.connectionData)
+        );
+        this.updateWebThinkingToggle(this.settings.connectionData);
     }
 
     checkLayout() {
@@ -94,11 +100,16 @@ export class UIController {
         }
 
         this.resizeModelSelect();
+        this.updateWebThinkingToggle(settings);
     }
 
     resizeModelSelect() {
         resizeSelectToSelectedOption(this.modelSelect);
         syncModelPicker(this.modelSelect);
+    }
+
+    updateWebThinkingToggle(settings = this.settings?.connectionData || {}) {
+        syncWebThinkingToggle(this.webThinkingToggle, settings, this.modelSelect?.value);
     }
 
     updateStatus(text) {
@@ -126,8 +137,8 @@ export class UIController {
         this.chat.setLoading(isLoading);
     }
 
-    renderHistoryList(sessions, currentId, callbacks, renderState) {
-        this.sidebar.renderList(sessions, currentId, callbacks, renderState);
+    renderHistoryList(sessions, groups, currentId, callbacks, renderState) {
+        this.sidebar.renderList(sessions, groups, currentId, callbacks, renderState);
     }
 
     updateShortcuts(payload) {

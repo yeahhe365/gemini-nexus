@@ -108,6 +108,85 @@
     border: none;
 }
 
+.live-artifact-preview {
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    background: color-mix(in srgb, var(--bg-body) 92%, var(--code-bg));
+}
+
+[data-theme='light'] .live-artifact-preview {
+    border-top-color: #d8dde6;
+    background: #f8fafd;
+}
+
+.live-artifact-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 7px 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    color: var(--text-tertiary);
+    font-size: 11px;
+    font-weight: 650;
+    line-height: 1.2;
+}
+
+[data-theme='light'] .live-artifact-header {
+    border-bottom-color: #e1e3e1;
+}
+
+.live-artifact-title {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    letter-spacing: 0;
+}
+
+.live-artifact-badge {
+    flex: 0 0 auto;
+    max-width: 8rem;
+    overflow: hidden;
+    color: var(--primary);
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.live-artifact-body {
+    min-height: 220px;
+    max-height: min(520px, 70vh);
+    overflow: auto;
+    background: #ffffff;
+}
+
+.live-artifact-body-mermaid {
+    display: grid;
+    place-items: center;
+    padding: 16px;
+}
+
+.live-artifact-body-mermaid svg {
+    display: block;
+    max-width: 100%;
+    height: auto;
+}
+
+.live-artifact-body-loading,
+.live-artifact-error {
+    color: #4f5968;
+    font-size: 13px;
+}
+
+.live-artifact-frame {
+    display: block;
+    width: 100%;
+    height: min(420px, 64vh);
+    min-height: 220px;
+    border: 0;
+    background: #ffffff;
+}
+
 .msg.ai code {
     font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
     font-size: 0.9em;

@@ -276,6 +276,10 @@
     margin-top: 0;
 }
 
+.data-management-actions {
+    flex-wrap: wrap;
+}
+
 .about-version-row {
     margin-bottom: 12px;
 }

@@ -5,6 +5,7 @@ import {
     DEFAULT_CONTEXT_MODE,
     DEFAULT_CONTEXT_RECENT_TURNS,
 } from '../../../shared/config/constants.js';
+import { normalizeWebThinkingLevelForModel } from '../../../shared/models/web_thinking.js';
 import {
     describeMessageAttachmentMarkers,
     getAttachmentDataUrls,
@@ -39,6 +40,7 @@ function hasImageAttachments(files) {
 
 function suppressWebImageEchoes(response, files) {
     if (!hasImageAttachments(files)) return response;
+    if (response?.hasGeneratedImagePlaceholder) return response;
     return {
         ...response,
         images: [],
@@ -229,7 +231,7 @@ export class RequestDispatcher {
         } else if (settings.provider === 'openai') {
             return await this._handleOpenAIRequest(request, settings, files, onUpdate, signal);
         } else {
-            return await this._handleWebRequest(request, files, onUpdate, signal);
+            return await this._handleWebRequest(request, settings, files, onUpdate, signal);
         }
     }
 
@@ -320,7 +322,7 @@ export class RequestDispatcher {
         });
     }
 
-    async _handleWebRequest(request, files, onUpdate, signal) {
+    async _handleWebRequest(request, settings, files, onUpdate, signal) {
         // Ensure auth is possibly ready, though SessionManager usually handles initialization.
 
         let attemptCount = 0;
@@ -338,6 +340,15 @@ export class RequestDispatcher {
             fullText = request.systemInstruction + '\n\nQuestion: ' + fullText;
         }
         fullText = buildWebPromptWithHistory(fullText, history);
+        const configuredThinkingLevel = request.webThinkingLevel || settings.webThinkingLevel;
+        const webOptions = configuredThinkingLevel
+            ? {
+                  thinkingLevel: normalizeWebThinkingLevelForModel(
+                      request.model,
+                      configuredThinkingLevel
+                  ),
+              }
+            : undefined;
 
         while (attemptCount < maxAttempts) {
             attemptCount++;
@@ -346,14 +357,16 @@ export class RequestDispatcher {
                 const context = await this.auth.getOrFetchContext();
                 const requestContext = stripNativeWebContextIds(context);
 
-                const response = await sendWebMessage(
+                const webMessageArgs = [
                     fullText,
                     requestContext,
                     request.model,
                     files,
                     signal,
-                    onUpdate
-                );
+                    onUpdate,
+                ];
+                if (webOptions) webMessageArgs.push(webOptions);
+                const response = await sendWebMessage(...webMessageArgs);
 
                 // Success! Update auth state
                 await this.auth.updateContext(response.newContext, request.model);

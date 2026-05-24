@@ -13,6 +13,7 @@ function installPickerDom() {
             <button id="model-picker-trigger" type="button" aria-haspopup="listbox" aria-expanded="false" aria-controls="model-picker-listbox">
                 <span class="model-picker-current"></span>
             </button>
+            <button id="web-thinking-toggle" type="button"></button>
             <div id="model-picker-menu" hidden>
                 <div id="model-picker-listbox" role="listbox"></div>
             </div>
@@ -89,6 +90,19 @@ describe('model picker', () => {
         document.getElementById('model-picker-trigger').click();
         wrapper.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
         expect(document.getElementById('model-picker-menu').hidden).toBe(true);
+    });
+
+    it('does not steal keyboard activation from the adjacent thinking toggle', () => {
+        const select = document.getElementById('model-select');
+        initModelPicker(select);
+        const toggle = document.getElementById('web-thinking-toggle');
+
+        toggle.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', bubbles: true }));
+
+        expect(document.getElementById('model-picker-menu').hidden).toBe(true);
+        expect(document.getElementById('model-picker-trigger').getAttribute('aria-expanded')).toBe(
+            'false'
+        );
     });
 
     it('resyncs when the native select options are replaced', () => {

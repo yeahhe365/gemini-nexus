@@ -11,7 +11,7 @@ export const HeaderTemplate = `
     <div class="header">
         <div class="header-left">
             <button id="history-toggle" class="icon-btn" data-i18n-title="toggleHistory" title="Chat History">
-                ${TemplateIcons.HISTORY}
+                ${TemplateIcons.SIDEBAR_TOGGLE}
             </button>
 
             <div class="model-select-wrapper">
@@ -20,6 +20,9 @@ export const HeaderTemplate = `
                 </select>
                 <button id="model-picker-trigger" class="model-picker-trigger" type="button" data-i18n-title="modelSelectTooltip" title="Select Model (Tab to cycle)" aria-haspopup="listbox" aria-expanded="false" aria-controls="model-picker-listbox">
                     <span class="model-picker-current">${defaultModelLabel}</span>
+                </button>
+                <button id="web-thinking-toggle" class="web-thinking-toggle" type="button" hidden data-i18n-title="headerThinkingToggleAria" title="Toggle thinking level" aria-label="Toggle thinking level" aria-pressed="false">
+                    ${TemplateIcons.ZAP}
                 </button>
                 <div id="model-picker-menu" class="model-picker-menu" hidden>
                     <div id="model-picker-listbox" class="model-picker-listbox" role="listbox"></div>

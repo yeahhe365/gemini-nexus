@@ -11,12 +11,14 @@ import {
     DEFAULT_THINKING_LEVEL,
 } from '../config/constants.js';
 import { createPrefixedId } from '../utils/index.js';
+import { DEFAULT_WEB_THINKING_LEVEL, normalizeWebThinkingLevel } from '../models/web_thinking.js';
 import { normalizeOpenAIWebSearchSettings } from './openai.js';
 
 export const CONNECTION_STORAGE_KEYS = [
     'geminiProvider',
     'geminiUseOfficialApi',
     'geminiModel',
+    'geminiWebThinkingLevel',
     'geminiOfficialBaseUrl',
     'geminiApiKey',
     'geminiOfficialModel',
@@ -87,6 +89,7 @@ export function createConnectionSettingsPayload(storageData = {}, options = {}) 
         provider,
         useOfficialApi: storageData.geminiUseOfficialApi === true,
         selectedModel,
+        webThinkingLevel: normalizeWebThinkingLevel(storageData.geminiWebThinkingLevel),
         openaiSelectedModel: storageData.geminiOpenaiSelectedModel || '',
         officialBaseUrl: storageData.geminiOfficialBaseUrl || DEFAULT_OFFICIAL_BASE_URL,
         apiKey: storageData.geminiApiKey || '',
@@ -113,6 +116,7 @@ export function createConnectionStorageUpdate(payload = {}) {
     return {
         geminiProvider: payload.provider,
         geminiUseOfficialApi: payload.provider === 'official',
+        geminiWebThinkingLevel: normalizeWebThinkingLevel(payload.webThinkingLevel),
         geminiOfficialBaseUrl: payload.officialBaseUrl || DEFAULT_OFFICIAL_BASE_URL,
         geminiApiKey: payload.apiKey || '',
         geminiOfficialModel: payload.officialModel || DEFAULT_OFFICIAL_MODELS,

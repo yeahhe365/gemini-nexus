@@ -15,17 +15,23 @@ describe('SidebarTemplate', () => {
         const historySection = sidebar.querySelector('.sidebar-history');
 
         expect(header.querySelector('#close-sidebar.sidebar-toggle-btn')).not.toBeNull();
+        const brand = header.firstElementChild;
+        expect(brand.className).toBe('sidebar-brand');
+        expect(brand.querySelector('.sidebar-brand-logo').getAttribute('src')).toBe('../logo.png');
+        expect(brand.querySelector('.sidebar-brand-logo').getAttribute('aria-hidden')).toBe('true');
+        expect(brand.querySelector('.sidebar-header-title').textContent).toBe('Gemini Nexus');
+        expect(brand.querySelector('.sidebar-header-title').className).toBe('sidebar-header-title');
+        expect(header.lastElementChild.id).toBe('close-sidebar');
         expect(actions.querySelector('#new-chat-sidebar-btn')).not.toBeNull();
         expect(actions.querySelector('#sidebar-search-toggle')).not.toBeNull();
+        expect(actions.querySelector('#new-group-sidebar-btn')).not.toBeNull();
 
         const searchPanel = actions.querySelector('.search-container');
         expect(searchPanel.hasAttribute('hidden')).toBe(true);
         expect(searchPanel.querySelector('#history-search')).not.toBeNull();
         expect(searchPanel.querySelector('#history-search-clear')).not.toBeNull();
 
-        expect(historySection.querySelector('.history-list-label').getAttribute('data-i18n')).toBe(
-            'recentLabel'
-        );
+        expect(historySection.querySelector('.history-list-label')).toBeNull();
         expect(historySection.querySelector('#history-list')).not.toBeNull();
         expect(sidebar.querySelector('.sidebar-footer #settings-btn')).not.toBeNull();
 

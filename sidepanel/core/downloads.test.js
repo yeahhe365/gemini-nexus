@@ -39,4 +39,11 @@ describe('sidepanel downloads', () => {
         expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:logs');
         expect(document.body.querySelectorAll('a')).toHaveLength(0);
     });
+
+    it('uses a custom content type for text downloads', () => {
+        downloadText('{"ok":true}', 'chat.json', 'application/json');
+
+        expect(URL.createObjectURL.mock.calls[0][0].type).toBe('application/json');
+        expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:logs');
+    });
 });

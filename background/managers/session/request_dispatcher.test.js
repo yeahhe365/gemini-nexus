@@ -288,6 +288,49 @@ describe('RequestDispatcher response mapping', () => {
         );
     });
 
+    it('keeps Gemini Web generated images for uploaded-image edit responses', async () => {
+        const generatedImage = { url: 'https://lh3.googleusercontent.com/gg-dl/generated-edit' };
+        sendWebMessage.mockResolvedValue({
+            text: '',
+            thoughts: null,
+            images: [generatedImage],
+            hasGeneratedImagePlaceholder: true,
+            newContext: { atValue: 'new-at-token' },
+        });
+        const auth = {
+            accountIndices: [0],
+            getOrFetchContext: vi.fn(async () => ({ atValue: 'at-token' })),
+            updateContext: vi.fn(),
+        };
+        const dispatcher = new RequestDispatcher(auth);
+        const files = [
+            {
+                name: 'image.png',
+                type: 'image/png',
+                base64: 'data:image/png;base64,AAAA',
+            },
+        ];
+
+        await expect(
+            dispatcher.dispatch(
+                { text: 'edit this image', model: 'gemini-web', sessionId: 'session-web' },
+                { provider: 'web' },
+                files,
+                vi.fn(),
+                null
+            )
+        ).resolves.toEqual({
+            action: 'GEMINI_REPLY',
+            sessionId: 'session-web',
+            text: '',
+            thoughts: null,
+            sources: [],
+            images: [generatedImage],
+            status: 'success',
+            context: null,
+        });
+    });
+
     it('sends web requests with explicit local history and resets native context ids', async () => {
         getHistory.mockResolvedValue([
             { role: 'user', text: 'Remember code ALPHA.' },
@@ -341,6 +384,45 @@ describe('RequestDispatcher response mapping', () => {
             'stale-response',
             'stale-choice',
         ]);
+    });
+
+    it('passes normalized Gemini Web thinking level to the reverse provider', async () => {
+        getHistory.mockResolvedValue([]);
+        sendWebMessage.mockResolvedValue({
+            text: 'web text',
+            thoughts: null,
+            images: [],
+            newContext: { atValue: 'new-at-token' },
+        });
+        const auth = {
+            accountIndices: [0],
+            getOrFetchContext: vi.fn(async () => ({ atValue: 'at-token' })),
+            updateContext: vi.fn(),
+        };
+        const dispatcher = new RequestDispatcher(auth);
+
+        await dispatcher.dispatch(
+            {
+                text: 'hello',
+                model: 'e6fa609c3fa255c0',
+                sessionId: 'session-web',
+                webThinkingLevel: 'minimal',
+            },
+            { provider: 'web', webThinkingLevel: 'high' },
+            [],
+            vi.fn(),
+            null
+        );
+
+        expect(sendWebMessage).toHaveBeenCalledWith(
+            'hello',
+            expect.any(Object),
+            'e6fa609c3fa255c0',
+            [],
+            null,
+            expect.any(Function),
+            { thinkingLevel: 'low' }
+        );
     });
 
     it('includes attachment-only history turns in Gemini Web local history prompts', async () => {

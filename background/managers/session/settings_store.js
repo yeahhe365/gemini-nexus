@@ -9,6 +9,7 @@ import {
     getConnectionProvider,
     getOpenAIWebSearchStorageKeys,
 } from '../../../shared/settings/connection.js';
+import { normalizeWebThinkingLevel } from '../../../shared/models/web_thinking.js';
 import { normalizeOpenAIWebSearchSettings } from '../../../shared/settings/openai.js';
 import { debugLog } from '../../../shared/logging/debug.js';
 
@@ -16,6 +17,7 @@ export async function getConnectionSettings() {
     const stored = await chrome.storage.local.get([
         'geminiProvider',
         'geminiUseOfficialApi',
+        'geminiWebThinkingLevel',
         'geminiOfficialBaseUrl',
         'geminiApiKey',
         'geminiOfficialModel',
@@ -68,6 +70,7 @@ export async function getConnectionSettings() {
 
     return {
         provider: provider,
+        webThinkingLevel: normalizeWebThinkingLevel(stored.geminiWebThinkingLevel),
         officialBaseUrl: stored.geminiOfficialBaseUrl || DEFAULT_OFFICIAL_BASE_URL,
         apiKey: activeApiKey,
         officialModel: stored.geminiOfficialModel || DEFAULT_OFFICIAL_MODELS,

@@ -84,6 +84,42 @@ export function mergeSessionSaveWithCurrent(
         return cleanIncoming;
     }
 
+    if (mutation?.type === 'updateSessionGroups') {
+        if (currentSessions.length === 0) return cleanIncoming;
+
+        const incomingById = new Map(
+            cleanIncoming
+                .filter((session) => session && typeof session.id === 'string')
+                .map((session) => [session.id, session])
+        );
+
+        return currentSessions.map((current) => {
+            const incoming = incomingById.get(current?.id);
+            if (!incoming || !Object.prototype.hasOwnProperty.call(incoming, 'groupId')) {
+                return current;
+            }
+            return { ...current, groupId: incoming.groupId || null };
+        });
+    }
+
+    if (mutation?.type === 'updateSessionMetadata' && mutation.sessionId) {
+        const incoming = findIncomingSession(cleanIncoming, mutation.sessionId);
+        if (!incoming) return currentSessions;
+
+        if (currentById.has(mutation.sessionId)) {
+            return currentSessions.map((current) => {
+                if (current?.id !== mutation.sessionId) return current;
+                return {
+                    ...current,
+                    title: incoming.title || current.title,
+                    isPinned: incoming.isPinned === true,
+                };
+            });
+        }
+
+        return [incoming, ...currentSessions];
+    }
+
     if (currentSessions.length === 0) return cleanIncoming;
 
     const incomingById = new Map(

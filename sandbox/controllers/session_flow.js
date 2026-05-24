@@ -1,8 +1,19 @@
 import { appendMessage } from '../render/message.js';
 import { appendContextCompressionNotice } from '../render/context_compression.js';
-import { sendToBackground, saveSessionsToStorage } from '../../shared/messaging/index.js';
+import { copyToClipboard } from '../render/clipboard.js';
+import {
+    downloadTextFile,
+    sendToBackground,
+    saveGroupsToStorage,
+    saveSessionsToStorage,
+} from '../../shared/messaging/index.js';
 import { hasDisplayableText, hasDisplayableThoughts } from '../core/displayable_content.js';
 import { t } from '../core/i18n.js';
+import {
+    buildSessionExportFilename,
+    buildSessionTextExport,
+    serializeSessionForExport,
+} from '../core/session_export.js';
 
 export class SessionFlowController {
     constructor(sessionManager, uiController, appController) {
@@ -101,10 +112,22 @@ export class SessionFlowController {
     refreshHistoryUI() {
         this.ui.renderHistoryList(
             this.sessionManager.getSortedSessions(),
+            this.sessionManager.getSortedGroups(),
             this.sessionManager.currentSessionId,
             {
                 onSwitch: (id) => this.switchToSession(id),
                 onDelete: (id) => this.handleDeleteSession(id),
+                onRename: (id, title) => this.handleRenameSession(id, title),
+                onTogglePin: (id) => this.handleTogglePinSession(id),
+                onDuplicate: (id) => this.handleDuplicateSession(id),
+                onShare: (id) => this.handleShareSession(id),
+                onExport: (id, format) => this.handleExportSession(id, format),
+                onAddGroup: () => this.handleAddNewGroup(),
+                onDeleteGroup: (id) => this.handleDeleteGroup(id),
+                onRenameGroup: (id, title) => this.handleRenameGroup(id, title),
+                onMoveSessionToGroup: (sessionId, groupId) =>
+                    this.handleMoveSessionToGroup(sessionId, groupId),
+                onToggleGroupExpansion: (id) => this.handleToggleGroupExpansion(id),
             },
             {
                 isGenerating: this.app.isGenerating,
@@ -204,5 +227,144 @@ export class SessionFlowController {
         } else {
             this.refreshHistoryUI();
         }
+    }
+
+    handleRenameSession(sessionId, title) {
+        if (!this.sessionManager.updateSessionTitle(sessionId, title)) return;
+
+        saveSessionsToStorage(this.sessionManager.getPersistableSessions(), {
+            type: 'updateSessionMetadata',
+            sessionId,
+        });
+        this.refreshHistoryUI();
+    }
+
+    handleTogglePinSession(sessionId) {
+        if (!this.sessionManager.toggleSessionPinned(sessionId)) return;
+
+        saveSessionsToStorage(this.sessionManager.getPersistableSessions(), {
+            type: 'updateSessionMetadata',
+            sessionId,
+        });
+        this.refreshHistoryUI();
+    }
+
+    handleDuplicateSession(sessionId) {
+        const duplicated = this.sessionManager.duplicateSession(sessionId, (title) => {
+            const template = t('duplicateChatTitle');
+            return template.includes('{title}')
+                ? template.replace('{title}', title)
+                : `${title} copy`;
+        });
+        if (!duplicated) return;
+
+        saveSessionsToStorage(this.sessionManager.getPersistableSessions(), {
+            type: 'upsertSession',
+            sessionId: duplicated.id,
+        });
+        this.refreshHistoryUI();
+    }
+
+    async handleShareSession(sessionId) {
+        const session = this.sessionManager.getSessionById(sessionId);
+        if (!session) return;
+
+        try {
+            await copyToClipboard(
+                buildSessionTextExport(session, {
+                    labels: this.getExportTextLabels(),
+                    exportedAt: new Date().toISOString(),
+                })
+            );
+            this.ui.updateStatus?.(t('shareChatCopied'));
+            setTimeout(() => this.ui.updateStatus?.(''), 2000);
+        } catch (error) {
+            console.error('Failed to copy share text', error);
+            this.ui.updateStatus?.(t('shareChatFailed'));
+            setTimeout(() => this.ui.updateStatus?.(''), 3000);
+        }
+    }
+
+    handleExportSession(sessionId, format) {
+        const session = this.sessionManager.getSessionById(sessionId);
+        if (!session) return;
+
+        const exportFormat = format === 'json' ? 'json' : 'txt';
+        const exportDate = new Date();
+        const filename = buildSessionExportFilename(session, exportFormat, exportDate);
+        if (exportFormat === 'json') {
+            downloadTextFile(
+                JSON.stringify(
+                    serializeSessionForExport(session, exportDate.toISOString()),
+                    null,
+                    2
+                ),
+                filename,
+                'application/json'
+            );
+            return;
+        }
+
+        downloadTextFile(
+            buildSessionTextExport(session, {
+                labels: this.getExportTextLabels(),
+                exportedAt: exportDate.toISOString(),
+            }),
+            filename,
+            'text/plain'
+        );
+    }
+
+    getExportTextLabels() {
+        return {
+            userRole: t('exportRoleUser'),
+            assistantRole: t('exportRoleAssistant'),
+            title: t('exportTitle'),
+            exportedAt: t('exportedAt'),
+            messages: t('exportMessages'),
+            attachments: t('exportAttachments'),
+            generatedImages: t('exportGeneratedImages'),
+            sources: t('exportSources'),
+            thoughts: t('exportThoughts'),
+        };
+    }
+
+    handleAddNewGroup() {
+        this.sessionManager.createGroup(t('newGroupTitle'));
+        saveGroupsToStorage(this.sessionManager.getPersistableGroups());
+        this.refreshHistoryUI();
+    }
+
+    handleDeleteGroup(groupId) {
+        if (!this.sessionManager.deleteGroup(groupId)) return;
+
+        saveGroupsToStorage(this.sessionManager.getPersistableGroups());
+        saveSessionsToStorage(this.sessionManager.getPersistableSessions(), {
+            type: 'updateSessionGroups',
+        });
+        this.refreshHistoryUI();
+    }
+
+    handleRenameGroup(groupId, title) {
+        if (!this.sessionManager.updateGroupTitle(groupId, title)) return;
+
+        saveGroupsToStorage(this.sessionManager.getPersistableGroups());
+        this.refreshHistoryUI();
+    }
+
+    handleMoveSessionToGroup(sessionId, groupId) {
+        if (!this.sessionManager.moveSessionToGroup(sessionId, groupId)) return;
+
+        saveSessionsToStorage(this.sessionManager.getPersistableSessions(), {
+            type: 'updateSessionGroups',
+        });
+        this.refreshHistoryUI();
+    }
+
+    handleToggleGroupExpansion(groupId) {
+        if (!this.sessionManager.toggleGroupExpansion(groupId)) return;
+
+        saveGroupsToStorage(this.sessionManager.getPersistableGroups());
+        this.refreshHistoryUI();
     }
 }

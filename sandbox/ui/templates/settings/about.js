@@ -7,7 +7,21 @@ export const AboutSettingsTemplate = `
         <div class="setting-panel-header">
             <h5 data-i18n="debugLogs">Debug Logs</h5>
         </div>
-        <button id="download-logs" class="btn-secondary settings-small-button" data-i18n="downloadLogs">Download</button>
+        <button id="download-logs" type="button" class="btn-secondary settings-small-button" data-i18n="downloadLogs">Download</button>
+    </div>
+
+    <div class="setting-panel">
+        <div class="setting-panel-header setting-panel-header-spaced">
+            <h5 data-i18n="dataManagement">Data Management</h5>
+        </div>
+        <div class="settings-action-row settings-section-offset data-management-actions">
+            <button id="export-history-data" type="button" class="btn-secondary settings-small-button" data-i18n="exportHistoryData">Export History</button>
+            <button id="import-history-data" type="button" class="btn-secondary settings-small-button" data-i18n="importHistoryData">Import History</button>
+            <button id="export-settings-data" type="button" class="btn-secondary settings-small-button" data-i18n="exportSettingsData">Export Settings</button>
+            <button id="import-settings-data" type="button" class="btn-secondary settings-small-button" data-i18n="importSettingsData">Import Settings</button>
+        </div>
+        <input id="import-history-file" type="file" accept="application/json,.json" hidden>
+        <input id="import-settings-file" type="file" accept="application/json,.json" hidden>
     </div>
 </div>
 

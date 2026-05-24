@@ -15,6 +15,7 @@ describe('connection settings helpers', () => {
             provider: 'web',
             useOfficialApi: false,
             selectedModel: '8c46e95b1a07cecc',
+            webThinkingLevel: 'high',
             openaiSelectedModel: '',
             officialBaseUrl: 'https://generativelanguage.googleapis.com/v1beta',
             apiKey: '',
@@ -64,6 +65,7 @@ describe('connection settings helpers', () => {
     it('declares the storage keys needed for connection restore', () => {
         expect(CONNECTION_STORAGE_KEYS).toContain('geminiProvider');
         expect(CONNECTION_STORAGE_KEYS).toContain('geminiModel');
+        expect(CONNECTION_STORAGE_KEYS).toContain('geminiWebThinkingLevel');
         expect(CONNECTION_STORAGE_KEYS).toContain('geminiOpenaiSelectedModel');
         expect(CONNECTION_STORAGE_KEYS).toContain('geminiMcpServers');
     });
@@ -72,6 +74,7 @@ describe('connection settings helpers', () => {
         expect(
             createConnectionStorageUpdate({
                 provider: 'openai',
+                webThinkingLevel: 'minimal',
                 openaiBaseUrl: 'https://api.example.test/v1',
                 openaiApiKey: 'sk-test',
                 openaiModel: 'gpt-5',
@@ -85,6 +88,7 @@ describe('connection settings helpers', () => {
             expect.objectContaining({
                 geminiProvider: 'openai',
                 geminiUseOfficialApi: false,
+                geminiWebThinkingLevel: 'minimal',
                 geminiOpenaiBaseUrl: 'https://api.example.test/v1',
                 geminiOpenaiApiKey: 'sk-test',
                 geminiOpenaiModel: 'gpt-5',

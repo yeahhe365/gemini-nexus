@@ -1,4 +1,5 @@
 import { transformMarkdown } from './pipeline.js';
+import { enhanceLiveArtifacts } from './artifacts.js';
 import { formatT, t } from '../core/i18n.js';
 import { createPrefixedId } from '../../shared/utils/index.js';
 
@@ -355,6 +356,8 @@ export function renderContent(contentDiv, text, role, options = {}) {
                 throwOnError: false,
             });
         }
+
+        enhanceLiveArtifacts(contentDiv);
     } else {
         // User message OR fallback if marked not loaded yet
         contentDiv.innerText = text;

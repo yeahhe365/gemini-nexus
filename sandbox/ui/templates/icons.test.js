@@ -13,7 +13,10 @@ describe('TemplateIcons', () => {
         expect(TemplateIcons.CHECK).toContain('<svg');
         expect(TemplateIcons.COPY).toContain('<svg');
         expect(TemplateIcons.EDIT).toContain('<svg');
+        expect(TemplateIcons.PIN).toContain('<svg');
+        expect(TemplateIcons.PIN_OFF).toContain('<svg');
         expect(TemplateIcons.SEND).toContain('<svg');
+        expect(TemplateIcons.SHARE).toContain('<svg');
         expect(TemplateIcons.STOP).toContain('<svg');
         expect(TemplateIcons.SUMMARY).toContain('<svg');
         expect(TemplateIcons.KEY).toContain('<svg');
@@ -23,5 +26,12 @@ describe('TemplateIcons', () => {
         expect(TemplateIcons.KEY).toContain(
             '<circle cx="16.5" cy="7.5" r=".5" fill="currentColor"></circle>'
         );
+    });
+
+    it('keeps the new group icon aligned with AMC lucide Folders', () => {
+        expect(TemplateIcons.NEW_GROUP).toContain(
+            'M20 17a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3.9a2 2 0 0 1-1.69-.9l-.81-1.2a2 2 0 0 0-1.67-.9H8a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2Z'
+        );
+        expect(TemplateIcons.NEW_GROUP).toContain('M2 8v11a2 2 0 0 0 2 2h14');
     });
 });

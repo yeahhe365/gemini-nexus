@@ -52,6 +52,7 @@ export class PromptController {
             text,
             files,
             model: selectedModel,
+            webThinkingLevel: conn.webThinkingLevel,
             includePageContext: this.app.pageContextActive,
             enableBrowserControl: this.app.browserControlActive,
             enableMcpTools,

@@ -47,6 +47,7 @@ describe('parseGeminiLine', () => {
                     alt: 'Generated Image',
                 },
             ],
+            hasGeneratedImagePlaceholder: true,
             ids: ['conversation-1', 'response-1', 'choice-1'],
         });
     });

@@ -21,16 +21,19 @@ const WEB_MODEL_HEADER_CONFIGS = {
         hash: '8c46e95b1a07cecc',
         mode: 6,
         featureMode: 1,
+        fastThinkingLevel: 'minimal',
     },
     '56fdd199312815e2': {
         hash: '56fdd199312815e2',
         mode: 1,
         featureMode: 1,
+        fastThinkingLevel: 'minimal',
     },
     e6fa609c3fa255c0: {
         hash: 'e6fa609c3fa255c0',
         mode: 3,
         featureMode: 1,
+        fastThinkingLevel: 'low',
     },
 };
 

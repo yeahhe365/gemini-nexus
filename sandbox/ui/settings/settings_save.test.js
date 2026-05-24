@@ -38,10 +38,11 @@ describe('settings save helpers', () => {
                     openaiWebSearch: true,
                     mcpServers: [{ id: 'srv-1', url: 'http://localhost/mcp' }],
                 },
-                { openaiSelectedModel: 'gpt-5-mini' }
+                { openaiSelectedModel: 'gpt-5-mini', webThinkingLevel: 'minimal' }
             )
         ).toMatchObject({
             provider: 'openai',
+            webThinkingLevel: 'minimal',
             openaiModel: 'gpt-5,gpt-5-mini',
             openaiSelectedModel: 'gpt-5-mini',
             openaiUseResponsesApi: true,

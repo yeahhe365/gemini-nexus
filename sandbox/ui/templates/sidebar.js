@@ -5,10 +5,13 @@ export const SidebarTemplate = `
     <div id="history-sidebar" class="sidebar">
         <div class="sidebar-expanded-pane">
             <div class="sidebar-header">
+                <div class="sidebar-brand">
+                    <img class="sidebar-brand-logo" src="../logo.png" alt="" aria-hidden="true">
+                    <div class="sidebar-header-title">Gemini Nexus</div>
+                </div>
                 <button id="close-sidebar" class="sidebar-icon-btn sidebar-toggle-btn" data-i18n-title="toggleHistory" title="Chat History">
                     ${TemplateIcons.SIDEBAR_TOGGLE}
                 </button>
-                <div class="sidebar-header-title">Gemini Nexus</div>
             </div>
 
             <div class="sidebar-actions">
@@ -20,6 +23,10 @@ export const SidebarTemplate = `
                     ${TemplateIcons.SEARCH}
                     <span data-i18n="searchPlaceholder">Search for chats</span>
                 </button>
+                <button id="new-group-sidebar-btn" class="sidebar-action-row" data-i18n-title="newGroupTooltip" title="New Group">
+                    ${TemplateIcons.NEW_GROUP}
+                    <span data-i18n="newGroup">New Group</span>
+                </button>
                 <div class="search-container" hidden>
                     ${TemplateIcons.SEARCH}
                     <input type="text" id="history-search" data-i18n-placeholder="searchPlaceholder" autocomplete="off">
@@ -30,7 +37,6 @@ export const SidebarTemplate = `
             </div>
 
             <div class="sidebar-history">
-                <div class="history-list-label" data-i18n="recentLabel">Recent</div>
                 <div id="history-list" class="history-list"></div>
             </div>
 

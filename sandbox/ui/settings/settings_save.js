@@ -5,6 +5,7 @@ import {
     DEFAULT_SIDE_PANEL_SCOPE,
     DEFAULT_THINKING_LEVEL,
 } from '../../../shared/config/constants.js';
+import { normalizeWebThinkingLevel } from '../../../shared/models/web_thinking.js';
 import { normalizeOpenAIWebSearchSettings } from '../../../shared/settings/openai.js';
 import { normalizeCustomSelectionTools } from '../../../shared/settings/selection_tools.js';
 
@@ -48,6 +49,7 @@ export function buildConnectionSettingsForSave(connection, previousConnectionDat
 
     return {
         provider: connection.provider,
+        webThinkingLevel: normalizeWebThinkingLevel(previousConnectionData.webThinkingLevel),
         officialBaseUrl: connection.officialBaseUrl,
         apiKey: connection.apiKey,
         officialModel: connection.officialModel,

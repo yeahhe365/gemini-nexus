@@ -2,6 +2,11 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { StandaloneSettingsBridge } from './bridge.js';
+import { downloadText } from '../sidepanel/core/downloads.js';
+
+vi.mock('../sidepanel/core/downloads.js', () => ({
+    downloadText: vi.fn(),
+}));
 
 function createController() {
     return {
@@ -164,6 +169,90 @@ describe('StandaloneSettingsBridge', () => {
                 ok: true,
                 toolsCount: 2,
             })
+        );
+    });
+
+    it('exports settings data without API keys from the standalone settings page', async () => {
+        chrome.storage.local.get.mockImplementation((keys, callback) =>
+            callback({
+                geminiTheme: 'dark',
+                geminiApiKey: 'official-secret',
+                geminiOpenaiApiKey: 'openai-secret',
+                geminiMcpServers: [
+                    {
+                        id: 'srv',
+                        headers: {
+                            Authorization: 'Bearer local',
+                            'X-Workspace': 'docs',
+                        },
+                        auth: { type: 'bearer', token: 'secret' },
+                    },
+                ],
+            })
+        );
+        const controller = createController();
+        const bridge = new StandaloneSettingsBridge(controller);
+
+        bridge.handleWindowMessage({
+            source: window,
+            data: { action: 'EXPORT_SETTINGS_DATA' },
+        });
+
+        await vi.waitFor(() => expect(downloadText).toHaveBeenCalled());
+        const exported = JSON.parse(downloadText.mock.calls.at(-1)[0]);
+
+        expect(exported.settings.geminiTheme).toBe('dark');
+        expect(exported.settings).not.toHaveProperty('geminiApiKey');
+        expect(exported.settings).not.toHaveProperty('geminiOpenaiApiKey');
+        expect(exported.settings.geminiMcpServers[0].headers).toEqual({
+            'X-Workspace': 'docs',
+        });
+        expect(exported.settings.geminiMcpServers[0].auth).toEqual({ type: 'bearer' });
+    });
+
+    it('imports history data from the standalone settings page', async () => {
+        chrome.storage.local.get.mockImplementation((keys, callback) =>
+            callback({
+                geminiSessions: [{ id: 'existing', messages: [{ role: 'user' }] }],
+                geminiGroups: [],
+                geminiDeletedSessionIds: { imported: 1 },
+            })
+        );
+        chrome.storage.local.set.mockImplementation((update, callback) => callback?.());
+        const postSpy = vi.spyOn(window, 'postMessage');
+        const controller = createController();
+        const bridge = new StandaloneSettingsBridge(controller);
+
+        bridge.handleWindowMessage({
+            source: window,
+            data: {
+                action: 'IMPORT_HISTORY_DATA',
+                payload: {
+                    type: 'GeminiNexus-History',
+                    history: [{ id: 'imported', messages: [{ role: 'ai' }] }],
+                },
+            },
+        });
+
+        await vi.waitFor(() =>
+            expect(chrome.storage.local.set).toHaveBeenCalledWith(
+                {
+                    geminiSessions: [
+                        { id: 'existing', messages: [{ role: 'user' }] },
+                        { id: 'imported', messages: [{ role: 'ai' }] },
+                    ],
+                    geminiGroups: [],
+                    geminiDeletedSessionIds: {},
+                },
+                expect.any(Function)
+            )
+        );
+        expect(postSpy).toHaveBeenCalledWith(
+            {
+                action: 'DATA_IMPORT_RESULT',
+                payload: { kind: 'history', ok: true },
+            },
+            '*'
         );
     });
 });

@@ -18,6 +18,87 @@ function readInitialSidebarExpandedFromUrl(locationLike = window.location) {
     return null;
 }
 
+const COLLAPSED_RECENT_PANEL_WIDTH = 320;
+const COLLAPSED_RECENT_PANEL_MARGIN = 16;
+
+function getSidebarLanguage() {
+    return document.documentElement.lang?.startsWith('zh') ? 'zh' : 'en';
+}
+
+function getValidSessionDate(session) {
+    const timestamp = Number(session?.timestamp);
+    const date = new Date(Number.isFinite(timestamp) ? timestamp : 0);
+    return Number.isNaN(date.getTime()) ? new Date(0) : date;
+}
+
+function categorizeSessionsByDate(sessions, now = new Date()) {
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const yesterdayStart = new Date(todayStart);
+    yesterdayStart.setDate(todayStart.getDate() - 1);
+    const sevenDaysAgoStart = new Date(todayStart);
+    sevenDaysAgoStart.setDate(todayStart.getDate() - 8);
+    const thirtyDaysAgoStart = new Date(todayStart);
+    thirtyDaysAgoStart.setDate(todayStart.getDate() - 30);
+
+    const categoryLabels = {
+        today: t('historyToday'),
+        yesterday: t('historyYesterday'),
+        sevenDays: t('historyPrevious7Days'),
+        thirtyDays: t('historyPrevious30Days'),
+    };
+    const staticOrder = [
+        categoryLabels.today,
+        categoryLabels.yesterday,
+        categoryLabels.sevenDays,
+        categoryLabels.thirtyDays,
+    ];
+    const categories = new Map();
+    const language = getSidebarLanguage();
+    const monthFormatter = new Intl.DateTimeFormat(
+        language === 'zh' ? 'zh-CN-u-nu-hanidec' : 'en-US',
+        {
+            year: 'numeric',
+            month: 'long',
+        }
+    );
+
+    sessions.forEach((session) => {
+        const sessionDate = getValidSessionDate(session);
+        let categoryName = '';
+
+        if (sessionDate >= todayStart) {
+            categoryName = categoryLabels.today;
+        } else if (sessionDate >= yesterdayStart) {
+            categoryName = categoryLabels.yesterday;
+        } else if (sessionDate >= sevenDaysAgoStart) {
+            categoryName = categoryLabels.sevenDays;
+        } else if (sessionDate >= thirtyDaysAgoStart) {
+            categoryName = categoryLabels.thirtyDays;
+        } else {
+            categoryName = monthFormatter.format(sessionDate);
+        }
+
+        if (!categories.has(categoryName)) {
+            categories.set(categoryName, []);
+        }
+        categories.get(categoryName).push(session);
+    });
+
+    const monthCategories = [...categories.keys()]
+        .filter((categoryName) => !staticOrder.includes(categoryName))
+        .sort(
+            (leftCategory, rightCategory) =>
+                getValidSessionDate(categories.get(rightCategory)?.[0]).getTime() -
+                getValidSessionDate(categories.get(leftCategory)?.[0]).getTime()
+        );
+
+    const categoryOrder = [...staticOrder, ...monthCategories].filter(
+        (categoryName) => (categories.get(categoryName) || []).length > 0
+    );
+
+    return { categories, categoryOrder };
+}
+
 export class SidebarController {
     constructor(elements, callbacks) {
         this.sidebar = elements.sidebar;
@@ -40,19 +121,38 @@ export class SidebarController {
         this.callbacks = callbacks || {};
 
         this.allSessions = [];
+        this.allGroups = [];
         this.currentSessionId = null;
         this.itemCallbacks = null;
         this.renderState = { isGenerating: false, generatingSessionId: null };
         this.searchOpen = this.searchContainer ? !this.searchContainer.hidden : false;
-        this.activeMenuSessionId = null;
+        this.activeMenuId = null;
+        this.activeMenuType = null;
+        this.editingSessionId = null;
+        this.editingSessionTitle = '';
+        this.editingGroupId = null;
+        this.editingGroupTitle = '';
+        this.dragOverGroupId = null;
         this.isCollapsedRecentOpen = false;
         this.collapsedRecentPinned = false;
         this.collapsedRecentCloseTimer = null;
         this.restoredSidebarExpanded = readInitialSidebarExpandedFromUrl();
 
+        this.portalCollapsedRecentPopover();
         this.initListeners();
         this.restorePersistedWideSidebarState();
         requestSidebarExpandedFromStorage();
+    }
+
+    portalCollapsedRecentPopover() {
+        if (
+            !this.collapsedRecentPopover ||
+            this.collapsedRecentPopover.parentElement === document.body
+        ) {
+            return;
+        }
+
+        document.body.appendChild(this.collapsedRecentPopover);
     }
 
     initListeners() {
@@ -137,6 +237,8 @@ export class SidebarController {
         document.addEventListener('keydown', (keyboardEvent) =>
             this.handleDocumentKeydown(keyboardEvent)
         );
+        window.addEventListener('resize', () => this.positionCollapsedRecentPopover());
+        window.addEventListener('scroll', () => this.positionCollapsedRecentPopover(), true);
     }
 
     _isWideLayout() {
@@ -169,7 +271,7 @@ export class SidebarController {
         const target = clickEvent.target;
 
         if (
-            this.activeMenuSessionId &&
+            this.activeMenuId &&
             target instanceof Node &&
             !target.closest?.('.history-item-menu') &&
             !target.closest?.('.history-menu-trigger')
@@ -357,15 +459,24 @@ export class SidebarController {
     }
 
     openItemMenu(sessionId) {
-        this.activeMenuSessionId = sessionId;
+        this.activeMenuId = sessionId;
+        this.activeMenuType = 'session';
+        this.closeCollapsedRecentPopover();
+        this._renderDOM(this._getDisplayedSessions());
+    }
+
+    openGroupMenu(groupId) {
+        this.activeMenuId = groupId;
+        this.activeMenuType = 'group';
         this.closeCollapsedRecentPopover();
         this._renderDOM(this._getDisplayedSessions());
     }
 
     closeItemMenu() {
-        if (!this.activeMenuSessionId) return;
+        if (!this.activeMenuId) return;
 
-        this.activeMenuSessionId = null;
+        this.activeMenuId = null;
+        this.activeMenuType = null;
         this._renderDOM(this._getDisplayedSessions());
     }
 
@@ -381,7 +492,11 @@ export class SidebarController {
     getRecentSessions() {
         return [...(this.allSessions || [])]
             .filter((session) => session.id !== this.currentSessionId)
-            .sort((first, second) => (second.timestamp || 0) - (first.timestamp || 0))
+            .sort(
+                (first, second) =>
+                    Number(second.isPinned === true) - Number(first.isPinned === true) ||
+                    (second.timestamp || 0) - (first.timestamp || 0)
+            )
             .slice(0, 8);
     }
 
@@ -399,13 +514,52 @@ export class SidebarController {
 
         this.clearCollapsedRecentCloseTimer();
         this.closeItemMenu();
+        this.portalCollapsedRecentPopover();
         this.renderCollapsedRecentPopover();
-        this.collapsedRecentPopover.hidden = false;
-        this.collapsedRecentBtn.setAttribute('aria-expanded', 'true');
         if (pinned || !this.isCollapsedRecentOpen) {
             this.collapsedRecentPinned = pinned;
         }
         this.isCollapsedRecentOpen = true;
+        this.positionCollapsedRecentPopover();
+        this.collapsedRecentPopover.hidden = false;
+        this.collapsedRecentBtn.setAttribute('aria-expanded', 'true');
+    }
+
+    positionCollapsedRecentPopover() {
+        if (
+            !this.isCollapsedRecentOpen ||
+            !this.collapsedRecentPopover ||
+            !this.collapsedRecentBtn
+        ) {
+            return;
+        }
+
+        const buttonRect = this.collapsedRecentBtn.getBoundingClientRect();
+        const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0;
+        const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+        const panelWidth = Math.min(
+            COLLAPSED_RECENT_PANEL_WIDTH,
+            Math.max(180, viewportWidth - COLLAPSED_RECENT_PANEL_MARGIN * 2)
+        );
+        const rightSideLeft = buttonRect.right;
+        const fitsRight =
+            rightSideLeft + panelWidth <= viewportWidth - COLLAPSED_RECENT_PANEL_MARGIN;
+        const left = fitsRight
+            ? rightSideLeft
+            : Math.max(COLLAPSED_RECENT_PANEL_MARGIN, buttonRect.left - panelWidth);
+        const maxTop = Math.max(
+            COLLAPSED_RECENT_PANEL_MARGIN,
+            viewportHeight - COLLAPSED_RECENT_PANEL_MARGIN * 2
+        );
+        const top = Math.min(Math.max(COLLAPSED_RECENT_PANEL_MARGIN, buttonRect.top), maxTop);
+
+        Object.assign(this.collapsedRecentPopover.style, {
+            position: 'fixed',
+            top: `${Math.round(top)}px`,
+            left: `${Math.round(left)}px`,
+            width: `${Math.round(panelWidth)}px`,
+            maxHeight: `calc(100vh - ${Math.round(top + COLLAPSED_RECENT_PANEL_MARGIN)}px)`,
+        });
     }
 
     closeCollapsedRecentPopover() {
@@ -477,15 +631,28 @@ export class SidebarController {
         this.collapsedRecentPopover.replaceChildren(fragment);
     }
 
-    renderList(sessions, currentId, itemCallbacks, renderState = {}) {
+    renderList(
+        sessions,
+        groupsOrCurrentId,
+        currentIdOrCallbacks,
+        callbacksOrRenderState,
+        renderState = {}
+    ) {
         if (!this.listEl) return;
 
-        this.allSessions = sessions;
+        const hasGroupsArgument = Array.isArray(groupsOrCurrentId);
+        const groups = hasGroupsArgument ? groupsOrCurrentId : this.allGroups;
+        const currentId = hasGroupsArgument ? currentIdOrCallbacks : groupsOrCurrentId;
+        const itemCallbacks = hasGroupsArgument ? callbacksOrRenderState : currentIdOrCallbacks;
+        const nextRenderState = hasGroupsArgument ? renderState : callbacksOrRenderState;
+
+        this.allSessions = Array.isArray(sessions) ? sessions : [];
+        this.allGroups = Array.isArray(groups) ? groups : [];
         this.currentSessionId = currentId;
-        this.itemCallbacks = itemCallbacks;
+        this.itemCallbacks = itemCallbacks || {};
         this.renderState = {
-            isGenerating: renderState.isGenerating === true,
-            generatingSessionId: renderState.generatingSessionId || null,
+            isGenerating: nextRenderState?.isGenerating === true,
+            generatingSessionId: nextRenderState?.generatingSessionId || null,
         };
 
         if (this.isCollapsedRecentOpen) {
@@ -502,8 +669,9 @@ export class SidebarController {
 
     _renderDOM(sessions) {
         const fragment = document.createDocumentFragment();
+        const groups = Array.isArray(this.allGroups) ? this.allGroups : [];
 
-        if (sessions.length === 0) {
+        if (sessions.length === 0 && groups.length === 0) {
             const emptyState = document.createElement('div');
             emptyState.className = 'empty-list-state';
             emptyState.textContent = t('noConversations');
@@ -512,83 +680,457 @@ export class SidebarController {
             return;
         }
 
+        const { groupedSessions, ungroupedSessions } = this.partitionSessionsByGroup(sessions);
+
+        groups.forEach((group) => {
+            fragment.appendChild(
+                this.createGroupElement(group, groupedSessions.get(group.id) || [])
+            );
+        });
+
+        const ungroupedContainer = document.createElement('div');
+        ungroupedContainer.className = 'history-ungrouped-dropzone';
+        this.bindDropTarget(ungroupedContainer, null);
+
+        const pinnedUngroupedSessions = ungroupedSessions.filter(
+            (session) => session.isPinned === true
+        );
+        const unpinnedUngroupedSessions = ungroupedSessions.filter(
+            (session) => session.isPinned !== true
+        );
+        if (pinnedUngroupedSessions.length > 0) {
+            ungroupedContainer.appendChild(
+                this.createSessionSection(t('pinnedChat'), pinnedUngroupedSessions)
+            );
+        }
+
+        const { categories, categoryOrder } = categorizeSessionsByDate(unpinnedUngroupedSessions);
+        categoryOrder.forEach((categoryName) => {
+            ungroupedContainer.appendChild(
+                this.createSessionSection(categoryName, categories.get(categoryName) || [])
+            );
+        });
+
+        fragment.appendChild(ungroupedContainer);
+
+        this.listEl.replaceChildren(fragment);
+        this.focusEditingTitleInput();
+    }
+
+    partitionSessionsByGroup(sessions) {
+        const groupedSessions = new Map();
+        const ungroupedSessions = [];
+
+        this.allGroups.forEach((group) => groupedSessions.set(group.id, []));
+
         sessions.forEach((session) => {
-            const isGeneratingSession =
-                this.renderState.isGenerating &&
-                this.renderState.generatingSessionId === session.id;
-            const isMenuOpen = this.activeMenuSessionId === session.id;
-            const sessionRow = document.createElement('div');
-            sessionRow.className = [
-                'history-item',
-                session.id === this.currentSessionId ? 'active' : '',
-                isMenuOpen ? 'menu-open' : '',
-            ]
-                .filter(Boolean)
-                .join(' ');
-            sessionRow.setAttribute('role', 'button');
-            sessionRow.tabIndex = 0;
+            if (session.groupId && groupedSessions.has(session.groupId)) {
+                groupedSessions.get(session.groupId).push(session);
+                return;
+            }
+            ungroupedSessions.push(session);
+        });
 
-            const handleSelect = () => {
-                if (this.itemCallbacks?.onSwitch) {
-                    this.itemCallbacks.onSwitch(session.id);
-                }
-                if (window.innerWidth < 600) {
-                    this.close();
-                }
-            };
+        return { groupedSessions, ungroupedSessions };
+    }
 
-            sessionRow.onclick = handleSelect;
-            sessionRow.onkeydown = (keyboardEvent) => {
-                if (keyboardEvent.key !== 'Enter' && keyboardEvent.key !== ' ') return;
+    createSessionSection(title, sessions) {
+        const section = document.createElement('section');
+        section.className = 'history-session-section';
 
+        const heading = document.createElement('div');
+        heading.className = 'history-session-section-title';
+        heading.textContent = title;
+        section.appendChild(heading);
+
+        sessions.forEach((session) => section.appendChild(this.createSessionRow(session)));
+        return section;
+    }
+
+    createGroupElement(group, sessions) {
+        const isMenuOpen = this.activeMenuType === 'group' && this.activeMenuId === group.id;
+        const groupElement = document.createElement('div');
+        groupElement.className = ['history-group', isMenuOpen ? 'menu-open' : '']
+            .filter(Boolean)
+            .join(' ');
+        this.bindDropTarget(groupElement, group.id);
+
+        const details = document.createElement('details');
+        details.className = 'history-group-details';
+        details.open = group.isExpanded !== false;
+
+        const summary = document.createElement('summary');
+        summary.className = 'history-group-summary';
+        summary.onclick = (clickEvent) => {
+            clickEvent.preventDefault();
+            if (this.itemCallbacks?.onToggleGroupExpansion) {
+                this.itemCallbacks.onToggleGroupExpansion(group.id);
+            }
+        };
+
+        const titleWrap = document.createElement('div');
+        titleWrap.className = 'history-group-title-wrap';
+
+        const chevron = document.createElement('span');
+        chevron.className = 'history-group-chevron';
+        chevron.innerHTML = TemplateIcons.CHEVRON_DOWN;
+        titleWrap.appendChild(chevron);
+
+        if (this.editingGroupId === group.id) {
+            titleWrap.appendChild(this.createGroupTitleEditor(group));
+        } else {
+            const title = document.createElement('span');
+            title.className = 'history-group-title';
+            title.textContent = group.title;
+            titleWrap.appendChild(title);
+        }
+
+        const menuButton = document.createElement('button');
+        menuButton.type = 'button';
+        menuButton.className = 'history-menu-trigger history-group-menu-trigger';
+        menuButton.innerHTML = TemplateIcons.MORE_HORIZONTAL;
+        menuButton.title = t('moreOptions');
+        menuButton.setAttribute('aria-label', t('moreOptions'));
+        menuButton.setAttribute('aria-haspopup', 'menu');
+        menuButton.setAttribute('aria-expanded', isMenuOpen ? 'true' : 'false');
+        menuButton.onclick = (clickEvent) => {
+            clickEvent.preventDefault();
+            clickEvent.stopPropagation();
+            if (isMenuOpen) {
+                this.closeItemMenu();
+                return;
+            }
+            this.openGroupMenu(group.id);
+        };
+        menuButton.onkeydown = (keyboardEvent) => keyboardEvent.stopPropagation();
+
+        summary.appendChild(titleWrap);
+        summary.appendChild(menuButton);
+        details.appendChild(summary);
+
+        if (isMenuOpen) {
+            details.appendChild(this.createGroupItemMenu(group));
+        }
+
+        const groupSessions = document.createElement('div');
+        groupSessions.className = 'history-group-sessions';
+        sessions.forEach((session) => groupSessions.appendChild(this.createSessionRow(session)));
+        details.appendChild(groupSessions);
+
+        groupElement.appendChild(details);
+        return groupElement;
+    }
+
+    createGroupTitleEditor(group) {
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'history-group-edit-input';
+        input.value = this.editingGroupTitle || group.title;
+        input.setAttribute('aria-label', t('renameGroup'));
+        input.onclick = (clickEvent) => clickEvent.stopPropagation();
+        input.oninput = (inputEvent) => {
+            this.editingGroupTitle = inputEvent.target.value;
+        };
+        input.onblur = () => this.confirmGroupTitleEdit();
+        input.onkeydown = (keyboardEvent) => {
+            keyboardEvent.stopPropagation();
+            if (keyboardEvent.key === 'Enter' && !keyboardEvent.isComposing) {
                 keyboardEvent.preventDefault();
-                handleSelect();
-            };
-            sessionRow.oncontextmenu = (mouseEvent) => {
-                mouseEvent.preventDefault();
-                this.openItemMenu(session.id);
-            };
+                this.confirmGroupTitleEdit();
+            } else if (keyboardEvent.key === 'Escape') {
+                keyboardEvent.preventDefault();
+                this.cancelGroupTitleEdit();
+            }
+        };
+        return input;
+    }
 
+    focusEditingTitleInput() {
+        if (!this.editingGroupId && !this.editingSessionId) return;
+
+        const input = this.listEl.querySelector(
+            '.history-group-edit-input, .history-session-edit-input'
+        );
+        if (!input) return;
+
+        input.focus({ preventScroll: true });
+        input.select();
+    }
+
+    createSessionTitleEditor(session) {
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'history-session-edit-input';
+        input.value = this.editingSessionTitle || session.title;
+        input.setAttribute('aria-label', t('renameChat'));
+        input.onclick = (clickEvent) => clickEvent.stopPropagation();
+        input.oninput = (inputEvent) => {
+            this.editingSessionTitle = inputEvent.target.value;
+        };
+        input.onblur = () => this.confirmSessionTitleEdit();
+        input.onkeydown = (keyboardEvent) => {
+            keyboardEvent.stopPropagation();
+            if (keyboardEvent.key === 'Enter' && !keyboardEvent.isComposing) {
+                keyboardEvent.preventDefault();
+                this.confirmSessionTitleEdit();
+            } else if (keyboardEvent.key === 'Escape') {
+                keyboardEvent.preventDefault();
+                this.cancelSessionTitleEdit();
+            }
+        };
+        return input;
+    }
+
+    startSessionTitleEdit(session) {
+        this.editingSessionId = session.id;
+        this.editingSessionTitle = session.title;
+        this.activeMenuId = null;
+        this.activeMenuType = null;
+        this._renderDOM(this._getDisplayedSessions());
+    }
+
+    confirmSessionTitleEdit() {
+        if (!this.editingSessionId) return;
+
+        const sessionId = this.editingSessionId;
+        const title = this.editingSessionTitle.trim();
+        this.editingSessionId = null;
+        this.editingSessionTitle = '';
+
+        if (title && this.itemCallbacks?.onRename) {
+            this.itemCallbacks.onRename(sessionId, title);
+            return;
+        }
+
+        this._renderDOM(this._getDisplayedSessions());
+    }
+
+    cancelSessionTitleEdit() {
+        if (!this.editingSessionId) return;
+
+        this.editingSessionId = null;
+        this.editingSessionTitle = '';
+        this._renderDOM(this._getDisplayedSessions());
+    }
+
+    startGroupTitleEdit(group) {
+        this.editingGroupId = group.id;
+        this.editingGroupTitle = group.title;
+        this.activeMenuId = null;
+        this.activeMenuType = null;
+        this._renderDOM(this._getDisplayedSessions());
+    }
+
+    confirmGroupTitleEdit() {
+        if (!this.editingGroupId) return;
+
+        const groupId = this.editingGroupId;
+        const title = this.editingGroupTitle.trim();
+        this.editingGroupId = null;
+        this.editingGroupTitle = '';
+
+        if (title && this.itemCallbacks?.onRenameGroup) {
+            this.itemCallbacks.onRenameGroup(groupId, title);
+            return;
+        }
+
+        this._renderDOM(this._getDisplayedSessions());
+    }
+
+    cancelGroupTitleEdit() {
+        if (!this.editingGroupId) return;
+
+        this.editingGroupId = null;
+        this.editingGroupTitle = '';
+        this._renderDOM(this._getDisplayedSessions());
+    }
+
+    createSessionRow(session) {
+        const isGeneratingSession =
+            this.renderState.isGenerating && this.renderState.generatingSessionId === session.id;
+        const isMenuOpen = this.activeMenuType === 'session' && this.activeMenuId === session.id;
+        const sessionRow = document.createElement('div');
+        sessionRow.className = [
+            'history-item',
+            session.id === this.currentSessionId ? 'active' : '',
+            isMenuOpen ? 'menu-open' : '',
+            session.isPinned === true ? 'pinned' : '',
+        ]
+            .filter(Boolean)
+            .join(' ');
+        sessionRow.setAttribute('role', 'button');
+        sessionRow.draggable = true;
+        sessionRow.tabIndex = 0;
+
+        const handleSelect = () => {
+            if (this.itemCallbacks?.onSwitch) {
+                this.itemCallbacks.onSwitch(session.id);
+            }
+            if (window.innerWidth < 600) {
+                this.close();
+            }
+        };
+
+        sessionRow.onclick = handleSelect;
+        sessionRow.onkeydown = (keyboardEvent) => {
+            if (keyboardEvent.key !== 'Enter' && keyboardEvent.key !== ' ') return;
+
+            keyboardEvent.preventDefault();
+            handleSelect();
+        };
+        sessionRow.oncontextmenu = (mouseEvent) => {
+            mouseEvent.preventDefault();
+            this.openItemMenu(session.id);
+        };
+        sessionRow.ondragstart = (dragEvent) => {
+            dragEvent.stopPropagation();
+            dragEvent.dataTransfer?.setData('sessionId', session.id);
+            dragEvent.dataTransfer?.setData('text/plain', session.id);
+            if (dragEvent.dataTransfer) {
+                dragEvent.dataTransfer.effectAllowed = 'move';
+            }
+            sessionRow.classList.add('dragging');
+        };
+        sessionRow.ondragend = () => {
+            sessionRow.classList.remove('dragging');
+            this.clearDragState();
+        };
+
+        const titleWrap = document.createElement('div');
+        titleWrap.className = 'history-title-wrap';
+
+        if (session.isPinned === true) {
+            const pinBadge = document.createElement('span');
+            pinBadge.className = 'history-pin-badge';
+            pinBadge.title = t('pinnedChat');
+            pinBadge.setAttribute('aria-label', t('pinnedChat'));
+            pinBadge.innerHTML = TemplateIcons.PIN;
+            titleWrap.appendChild(pinBadge);
+        }
+
+        if (this.editingSessionId === session.id) {
+            titleWrap.appendChild(this.createSessionTitleEditor(session));
+        } else {
             const titleSpan = document.createElement('span');
             titleSpan.className = 'history-title';
             titleSpan.textContent = session.title;
+            titleWrap.appendChild(titleSpan);
+        }
 
-            const spinner = document.createElement('span');
-            spinner.className = 'history-generating-spinner';
-            spinner.title = t('generating');
-            spinner.setAttribute('aria-label', t('generating'));
+        const spinner = document.createElement('span');
+        spinner.className = 'history-generating-spinner';
+        spinner.title = t('generating');
+        spinner.setAttribute('aria-label', t('generating'));
 
-            const menuButton = document.createElement('button');
-            menuButton.type = 'button';
-            menuButton.className = 'history-menu-trigger';
-            menuButton.innerHTML = TemplateIcons.MORE_HORIZONTAL;
-            menuButton.title = t('moreOptions');
-            menuButton.setAttribute('aria-label', t('moreOptions'));
-            menuButton.setAttribute('aria-haspopup', 'menu');
-            menuButton.setAttribute('aria-expanded', isMenuOpen ? 'true' : 'false');
-            menuButton.onclick = (clickEvent) => {
-                clickEvent.stopPropagation();
-                if (isMenuOpen) {
-                    this.closeItemMenu();
-                    return;
-                }
-                this.openItemMenu(session.id);
-            };
-            menuButton.onkeydown = (keyboardEvent) => keyboardEvent.stopPropagation();
-
-            sessionRow.appendChild(titleSpan);
-            if (isGeneratingSession) {
-                sessionRow.appendChild(spinner);
-            }
-            sessionRow.appendChild(menuButton);
-
+        const menuButton = document.createElement('button');
+        menuButton.type = 'button';
+        menuButton.className = 'history-menu-trigger';
+        menuButton.innerHTML = TemplateIcons.MORE_HORIZONTAL;
+        menuButton.title = t('moreOptions');
+        menuButton.setAttribute('aria-label', t('moreOptions'));
+        menuButton.setAttribute('aria-haspopup', 'menu');
+        menuButton.setAttribute('aria-expanded', isMenuOpen ? 'true' : 'false');
+        menuButton.onclick = (clickEvent) => {
+            clickEvent.stopPropagation();
             if (isMenuOpen) {
-                sessionRow.appendChild(this.createHistoryItemMenu(session));
+                this.closeItemMenu();
+                return;
             }
-            fragment.appendChild(sessionRow);
-        });
+            this.openItemMenu(session.id);
+        };
+        menuButton.onkeydown = (keyboardEvent) => keyboardEvent.stopPropagation();
 
-        this.listEl.replaceChildren(fragment);
+        sessionRow.appendChild(titleWrap);
+        if (isGeneratingSession) {
+            sessionRow.appendChild(spinner);
+        }
+        sessionRow.appendChild(menuButton);
+
+        if (isMenuOpen) {
+            sessionRow.appendChild(this.createHistoryItemMenu(session));
+        }
+
+        return sessionRow;
+    }
+
+    bindDropTarget(element, groupId) {
+        const dragClass = 'drag-over';
+        const dragKey = groupId || '__ungrouped__';
+
+        element.ondragover = (dragEvent) => {
+            dragEvent.preventDefault();
+            dragEvent.stopPropagation();
+            if (dragEvent.dataTransfer) {
+                dragEvent.dataTransfer.dropEffect = 'move';
+            }
+        };
+        element.ondragenter = (dragEvent) => {
+            dragEvent.preventDefault();
+            dragEvent.stopPropagation();
+            this.dragOverGroupId = dragKey;
+            element.classList.add(dragClass);
+        };
+        element.ondragleave = (dragEvent) => {
+            if (element.contains(dragEvent.relatedTarget)) return;
+            element.classList.remove(dragClass);
+            if (this.dragOverGroupId === dragKey) {
+                this.dragOverGroupId = null;
+            }
+        };
+        element.ondrop = (dropEvent) => {
+            dropEvent.preventDefault();
+            dropEvent.stopPropagation();
+            element.classList.remove(dragClass);
+            this.dragOverGroupId = null;
+
+            const sessionId =
+                dropEvent.dataTransfer?.getData('sessionId') ||
+                dropEvent.dataTransfer?.getData('text/plain');
+            if (sessionId && this.itemCallbacks?.onMoveSessionToGroup) {
+                this.itemCallbacks.onMoveSessionToGroup(sessionId, groupId);
+            }
+        };
+    }
+
+    clearDragState() {
+        this.dragOverGroupId = null;
+        this.listEl
+            ?.querySelectorAll('.drag-over')
+            .forEach((element) => element.classList.remove('drag-over'));
+    }
+
+    createGroupItemMenu(group) {
+        const menu = document.createElement('div');
+        menu.className = 'history-item-menu history-group-menu';
+        menu.setAttribute('role', 'menu');
+        menu.onclick = (clickEvent) => clickEvent.stopPropagation();
+
+        const renameItem = document.createElement('button');
+        renameItem.type = 'button';
+        renameItem.className = 'history-menu-item';
+        renameItem.setAttribute('role', 'menuitem');
+        renameItem.innerHTML = `${TemplateIcons.EDIT}<span>${t('renameGroup')}</span>`;
+        renameItem.onclick = (clickEvent) => {
+            clickEvent.stopPropagation();
+            this.startGroupTitleEdit(group);
+        };
+
+        const deleteItem = document.createElement('button');
+        deleteItem.type = 'button';
+        deleteItem.className = 'history-menu-item history-menu-delete';
+        deleteItem.setAttribute('role', 'menuitem');
+        deleteItem.innerHTML = `${TemplateIcons.TRASH}<span>${t('deleteGroup')}</span>`;
+        deleteItem.onclick = (clickEvent) => {
+            clickEvent.stopPropagation();
+            if (confirm(t('deleteGroupConfirm')) && this.itemCallbacks?.onDeleteGroup) {
+                this.itemCallbacks.onDeleteGroup(group.id);
+            }
+            this.closeItemMenu();
+        };
+
+        menu.appendChild(renameItem);
+        menu.appendChild(deleteItem);
+        return menu;
     }
 
     createHistoryItemMenu(session) {
@@ -596,6 +1138,83 @@ export class SidebarController {
         menu.className = 'history-item-menu';
         menu.setAttribute('role', 'menu');
         menu.onclick = (clickEvent) => clickEvent.stopPropagation();
+
+        const renameItem = document.createElement('button');
+        renameItem.type = 'button';
+        renameItem.className = 'history-menu-item';
+        renameItem.setAttribute('role', 'menuitem');
+        renameItem.innerHTML = `${TemplateIcons.EDIT}<span>${t('renameChat')}</span>`;
+        renameItem.onclick = (clickEvent) => {
+            clickEvent.stopPropagation();
+            this.startSessionTitleEdit(session);
+        };
+
+        const pinItem = document.createElement('button');
+        pinItem.type = 'button';
+        pinItem.className = 'history-menu-item';
+        pinItem.setAttribute('role', 'menuitem');
+        pinItem.innerHTML = `${
+            session.isPinned === true ? TemplateIcons.PIN_OFF : TemplateIcons.PIN
+        }<span>${session.isPinned === true ? t('unpinChat') : t('pinChat')}</span>`;
+        pinItem.onclick = (clickEvent) => {
+            clickEvent.stopPropagation();
+            if (this.itemCallbacks?.onTogglePin) {
+                this.itemCallbacks.onTogglePin(session.id);
+            }
+            this.closeItemMenu();
+        };
+
+        const duplicateItem = document.createElement('button');
+        duplicateItem.type = 'button';
+        duplicateItem.className = 'history-menu-item';
+        duplicateItem.setAttribute('role', 'menuitem');
+        duplicateItem.innerHTML = `${TemplateIcons.COPY}<span>${t('duplicateChat')}</span>`;
+        duplicateItem.onclick = (clickEvent) => {
+            clickEvent.stopPropagation();
+            if (this.itemCallbacks?.onDuplicate) {
+                this.itemCallbacks.onDuplicate(session.id);
+            }
+            this.closeItemMenu();
+        };
+
+        const shareItem = document.createElement('button');
+        shareItem.type = 'button';
+        shareItem.className = 'history-menu-item';
+        shareItem.setAttribute('role', 'menuitem');
+        shareItem.innerHTML = `${TemplateIcons.SHARE}<span>${t('shareChat')}</span>`;
+        shareItem.onclick = (clickEvent) => {
+            clickEvent.stopPropagation();
+            if (this.itemCallbacks?.onShare) {
+                this.itemCallbacks.onShare(session.id);
+            }
+            this.closeItemMenu();
+        };
+
+        const exportTxtItem = document.createElement('button');
+        exportTxtItem.type = 'button';
+        exportTxtItem.className = 'history-menu-item';
+        exportTxtItem.setAttribute('role', 'menuitem');
+        exportTxtItem.innerHTML = `${TemplateIcons.DOWNLOAD}<span>${t('exportChatTxt')}</span>`;
+        exportTxtItem.onclick = (clickEvent) => {
+            clickEvent.stopPropagation();
+            if (this.itemCallbacks?.onExport) {
+                this.itemCallbacks.onExport(session.id, 'txt');
+            }
+            this.closeItemMenu();
+        };
+
+        const exportJsonItem = document.createElement('button');
+        exportJsonItem.type = 'button';
+        exportJsonItem.className = 'history-menu-item';
+        exportJsonItem.setAttribute('role', 'menuitem');
+        exportJsonItem.innerHTML = `${TemplateIcons.DOWNLOAD}<span>${t('exportChatJson')}</span>`;
+        exportJsonItem.onclick = (clickEvent) => {
+            clickEvent.stopPropagation();
+            if (this.itemCallbacks?.onExport) {
+                this.itemCallbacks.onExport(session.id, 'json');
+            }
+            this.closeItemMenu();
+        };
 
         const deleteItem = document.createElement('button');
         deleteItem.type = 'button';
@@ -610,6 +1229,12 @@ export class SidebarController {
             this.closeItemMenu();
         };
 
+        menu.appendChild(renameItem);
+        menu.appendChild(pinItem);
+        menu.appendChild(duplicateItem);
+        menu.appendChild(shareItem);
+        menu.appendChild(exportTxtItem);
+        menu.appendChild(exportJsonItem);
         menu.appendChild(deleteItem);
         return menu;
     }

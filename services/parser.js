@@ -9,6 +9,10 @@ const TEXT_VALUE_INDEX = 0;
 const CONVERSATION_ID_INDEX = 0;
 const RESPONSE_ID_INDEX = 1;
 const MAX_IMAGE_SCAN_DEPTH = 20;
+const GENERATED_IMAGE_PLACEHOLDER_PATTERN =
+    /https?:\/\/googleusercontent\.com\/image_generation_content\/\d+/;
+const GENERATED_IMAGE_PLACEHOLDER_REPLACE_PATTERN =
+    /https?:\/\/googleusercontent\.com\/image_generation_content\/\d+/g;
 
 export function parseGeminiLine(line) {
     try {
@@ -58,6 +62,8 @@ export function parseGeminiLine(line) {
                 if (Array.isArray(textNode) && typeof textNode[TEXT_VALUE_INDEX] === 'string') {
                     text = textNode[TEXT_VALUE_INDEX];
                 }
+                const hasTextGeneratedImagePlaceholder =
+                    GENERATED_IMAGE_PLACEHOLDER_PATTERN.test(text);
 
                 // Based on python gemini-webapi reference.
                 let thoughts = null;
@@ -80,6 +86,7 @@ export function parseGeminiLine(line) {
                 // we recursively scan the candidate structure for any string that looks like a hosted image URL.
                 const generatedImages = [];
                 const seenUrls = new Set();
+                let hasGeneratedImagePlaceholder = hasTextGeneratedImagePlaceholder;
 
                 const traverse = (node, depth = 0) => {
                     // Guard against unexpected nested payloads.
@@ -92,7 +99,10 @@ export function parseGeminiLine(line) {
                             (node.includes('googleusercontent.com') || node.includes('ggpht.com'))
                         ) {
                             // Exclude the placeholder URL which looks like .../image_generation_content/0.
-                            if (node.includes('image_generation_content')) return;
+                            if (node.includes('image_generation_content')) {
+                                hasGeneratedImagePlaceholder = true;
+                                return;
+                            }
 
                             // Normalize protocol.
                             let url = node;
@@ -137,10 +147,7 @@ export function parseGeminiLine(line) {
                 // If real images were found, remove the ugly placeholder text.
                 // Placeholder format: http://googleusercontent.com/image_generation_content/0
                 if (generatedImages.length > 0) {
-                    text = text.replace(
-                        /https?:\/\/googleusercontent\.com\/image_generation_content\/\d+/g,
-                        ''
-                    );
+                    text = text.replace(GENERATED_IMAGE_PLACEHOLDER_REPLACE_PATTERN, '');
                     // Remove potential empty markdown links created by this removal.
                     text = text.replace(/\[\s*\]\(\s*\)/g, '');
                     text = text.trim();
@@ -150,6 +157,7 @@ export function parseGeminiLine(line) {
                     text,
                     thoughts,
                     images: generatedImages,
+                    hasGeneratedImagePlaceholder,
                     conversationId: payload[PAYLOAD_IDS_INDEX]?.[CONVERSATION_ID_INDEX],
                     responseId: payload[PAYLOAD_IDS_INDEX]?.[RESPONSE_ID_INDEX],
                     choiceId: firstCandidate[CANDIDATE_CHOICE_ID_INDEX],
@@ -168,6 +176,7 @@ export function parseGeminiLine(line) {
                     text: result.text,
                     thoughts: result.thoughts,
                     images: result.images,
+                    hasGeneratedImagePlaceholder: result.hasGeneratedImagePlaceholder,
                     ids: [result.conversationId, result.responseId, result.choiceId],
                 };
             }

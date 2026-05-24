@@ -145,4 +145,18 @@ describe('PromptController.send', () => {
             })
         );
     });
+
+    it('includes the current Gemini Web thinking level in prompt requests', () => {
+        const { controller, ui } = createPromptHarness();
+        ui.settings.connectionData = {
+            provider: 'web',
+            webThinkingLevel: 'minimal',
+        };
+
+        expect(controller.buildRequestPayload('Hello', [], 'session-1')).toEqual(
+            expect.objectContaining({
+                webThinkingLevel: 'minimal',
+            })
+        );
+    });
 });

@@ -15,8 +15,8 @@ export function downloadFile(url, filename) {
     triggerDownload(url, filename);
 }
 
-export function downloadText(text, filename) {
-    const blob = new Blob([text], { type: 'text/plain' });
+export function downloadText(text, filename, contentType = 'text/plain') {
+    const blob = new Blob([text], { type: contentType || 'text/plain' });
     const url = URL.createObjectURL(blob);
 
     try {

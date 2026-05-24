@@ -16,9 +16,19 @@ export function bindAppEvents(app, ui, setResizeRef) {
         }
     });
 
+    const newGroupSidebarBtn = document.getElementById('new-group-sidebar-btn');
+    if (newGroupSidebarBtn) {
+        newGroupSidebarBtn.addEventListener('click', () => app.sessionFlow.handleAddNewGroup());
+    }
+
     const tabSwitcherBtn = document.getElementById('tab-switcher-btn');
     if (tabSwitcherBtn) {
         tabSwitcherBtn.addEventListener('click', () => app.handleTabSwitcher());
+    }
+
+    const webThinkingToggle = document.getElementById('web-thinking-toggle');
+    if (webThinkingToggle) {
+        webThinkingToggle.addEventListener('click', () => app.handleWebThinkingToggle());
     }
 
     const openFullPageBtn = document.getElementById('open-full-page-btn');

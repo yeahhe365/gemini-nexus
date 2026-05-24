@@ -18,6 +18,58 @@ export function saveSessionsToStorage(sessions, mutation = null) {
     );
 }
 
+export function saveGroupsToStorage(groups) {
+    window.parent.postMessage(
+        {
+            action: 'SAVE_GROUPS',
+            payload: Array.isArray(groups) ? groups : [],
+        },
+        '*'
+    );
+}
+
+export function downloadTextFile(text, filename, contentType = 'text/plain') {
+    window.parent.postMessage(
+        {
+            action: 'DOWNLOAD_TEXT',
+            payload: {
+                text,
+                filename,
+                contentType,
+            },
+        },
+        '*'
+    );
+}
+
+export function exportHistoryData() {
+    window.parent.postMessage({ action: 'EXPORT_HISTORY_DATA' }, '*');
+}
+
+export function importHistoryData(payload) {
+    window.parent.postMessage(
+        {
+            action: 'IMPORT_HISTORY_DATA',
+            payload,
+        },
+        '*'
+    );
+}
+
+export function exportSettingsData() {
+    window.parent.postMessage({ action: 'EXPORT_SETTINGS_DATA' }, '*');
+}
+
+export function importSettingsData(payload) {
+    window.parent.postMessage(
+        {
+            action: 'IMPORT_SETTINGS_DATA',
+            payload,
+        },
+        '*'
+    );
+}
+
 export function saveShortcutsToStorage(shortcuts) {
     window.parent.postMessage(
         {

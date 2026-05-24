@@ -4,6 +4,8 @@ import { WatermarkRemover } from '../../shared/media/watermark_remover.js';
 import { createPrefixedId, getHighResImageUrl } from '../../shared/utils/index.js';
 import { t } from '../core/i18n.js';
 
+let rendererMessageHandler = null;
+
 function escapeAttribute(value) {
     return String(value || '')
         .replace(/&/g, '&amp;')
@@ -15,9 +17,13 @@ function escapeAttribute(value) {
 export function initRendererMode() {
     document.body.innerHTML = ''; // Clear UI
 
-    loadLibs();
+    const dependencyLoadPromise = loadLibs();
 
-    window.addEventListener('message', async (event) => {
+    if (rendererMessageHandler) {
+        window.removeEventListener('message', rendererMessageHandler);
+    }
+
+    rendererMessageHandler = async (event) => {
         const message = event.data || {};
         if (!message || typeof message !== 'object') return;
 
@@ -25,6 +31,8 @@ export function initRendererMode() {
             const { text, reqId, images } = message;
 
             try {
+                await dependencyLoadPromise;
+
                 let html = transformMarkdown(text);
 
                 if (typeof katex !== 'undefined') {
@@ -102,5 +110,7 @@ export function initRendererMode() {
                 );
             }
         }
-    });
+    };
+
+    window.addEventListener('message', rendererMessageHandler);
 }

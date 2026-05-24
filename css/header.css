@@ -291,6 +291,7 @@ body.layout-wide.sidebar-collapsed .browser-control-bar {
     pointer-events: auto;
     display: inline-flex;
     align-items: center;
+    gap: 4px;
 }
 
 .model-native-select {
@@ -303,7 +304,7 @@ body.layout-wide.sidebar-collapsed .browser-control-bar {
 
 .model-picker-trigger {
     min-height: 36px;
-    max-width: min(220px, calc(100vw - 164px));
+    max-width: min(220px, calc(100vw - 208px));
     padding: 0 12px;
     border: 1px solid transparent;
     border-radius: 12px;
@@ -321,6 +322,55 @@ body.layout-wide.sidebar-collapsed .browser-control-bar {
         background-color 0.2s,
         border-color 0.2s,
         color 0.2s;
+}
+
+.web-thinking-toggle {
+    width: 36px;
+    height: 36px;
+    flex: 0 0 36px;
+    border: 1px solid transparent;
+    border-radius: 12px;
+    background: transparent;
+    color: var(--text-tertiary);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    outline: none;
+    transition:
+        background-color 0.2s,
+        border-color 0.2s,
+        color 0.2s;
+}
+
+.web-thinking-toggle[hidden] {
+    display: none !important;
+}
+
+.web-thinking-toggle svg {
+    width: 18px;
+    height: 18px;
+    transition: fill 0.2s;
+}
+
+.web-thinking-toggle:hover {
+    background: var(--btn-hover);
+    border-color: var(--border-color);
+    color: var(--text-primary);
+}
+
+.web-thinking-toggle:focus-visible {
+    box-shadow:
+        0 0 0 2px var(--bg-primary),
+        0 0 0 4px var(--border-focus);
+}
+
+.web-thinking-toggle.is-fast {
+    color: #eab308;
+}
+
+.web-thinking-toggle.is-fast svg {
+    fill: currentColor;
 }
 
 .model-picker-trigger:hover,
@@ -466,9 +516,15 @@ body.layout-wide.sidebar-collapsed .browser-control-bar {
     }
 
     .model-picker-trigger {
-        max-width: calc(100vw - 188px);
+        max-width: calc(100vw - 230px);
         min-height: 34px;
         padding: 0 10px;
         font-size: 14px;
+    }
+
+    .web-thinking-toggle {
+        width: 34px;
+        height: 34px;
+        flex-basis: 34px;
     }
 }

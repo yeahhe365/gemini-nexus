@@ -1,5 +1,13 @@
 import { downloadFile, downloadText } from './downloads.js';
+import {
+    HISTORY_STORAGE_KEYS,
+    SETTINGS_STORAGE_KEYS,
+    buildDataExportFilename,
+    buildHistoryExportPayload,
+    buildSettingsExportPayload,
+} from '../../shared/data_management/index.js';
 import { CUSTOM_SELECTION_TOOLS_STORAGE_KEY } from '../../shared/settings/selection_tools.js';
+import { normalizeWebThinkingLevel } from '../../shared/models/web_thinking.js';
 import { publishHostContext } from './host_context.js';
 import {
     restoreAccountIndices,
@@ -36,6 +44,39 @@ const WINDOW_MESSAGE_HANDLERS = {
     DOWNLOAD_LOGS(payload) {
         downloadText(payload.text, payload.filename || 'gemini-nexus-logs.txt');
     },
+    DOWNLOAD_TEXT(payload) {
+        downloadText(
+            payload?.text || '',
+            payload?.filename || 'download.txt',
+            payload?.contentType
+        );
+    },
+    EXPORT_HISTORY_DATA() {
+        chrome.storage.local.get(HISTORY_STORAGE_KEYS, (result) => {
+            const exportPayload = buildHistoryExportPayload(result || {});
+            downloadText(
+                JSON.stringify(exportPayload, null, 2),
+                buildDataExportFilename('history'),
+                'application/json'
+            );
+        });
+    },
+    IMPORT_HISTORY_DATA(payload, bridge) {
+        bridge.importHistoryData(payload);
+    },
+    EXPORT_SETTINGS_DATA() {
+        chrome.storage.local.get(SETTINGS_STORAGE_KEYS, (result) => {
+            const exportPayload = buildSettingsExportPayload(result || {});
+            downloadText(
+                JSON.stringify(exportPayload, null, 2),
+                buildDataExportFilename('settings'),
+                'application/json'
+            );
+        });
+    },
+    IMPORT_SETTINGS_DATA(payload, bridge) {
+        bridge.importSettingsData(payload);
+    },
     GET_TEXT_SELECTION(payload, bridge) {
         restoreTextSelection(bridge.frame);
     },
@@ -63,11 +104,17 @@ const WINDOW_MESSAGE_HANDLERS = {
     SAVE_SESSIONS(payload, bridge) {
         bridge.saveSessionsSafely(payload);
     },
+    SAVE_GROUPS(payload, bridge) {
+        bridge.state.save('geminiGroups', Array.isArray(payload) ? payload : []);
+    },
     SAVE_SHORTCUTS(payload, bridge) {
         bridge.state.save('geminiShortcuts', payload);
     },
     SAVE_MODEL(payload, bridge) {
         bridge.saveSelectedModel(payload);
+    },
+    SAVE_WEB_THINKING_LEVEL(payload, bridge) {
+        bridge.state.save('geminiWebThinkingLevel', normalizeWebThinkingLevel(payload));
     },
     SAVE_THEME(payload, bridge) {
         bridge.state.save('geminiTheme', payload);

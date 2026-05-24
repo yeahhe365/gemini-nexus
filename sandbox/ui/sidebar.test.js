@@ -18,7 +18,23 @@ vi.mock('../core/i18n.js', () => ({
             deleteChatConfirm: 'Delete this chat?',
             generating: 'Generating',
             moreOptions: 'More options',
+            renameChat: 'Rename',
+            pinChat: 'Pin',
+            unpinChat: 'Unpin',
+            pinnedChat: 'Pinned',
+            historyToday: 'Today',
+            historyYesterday: 'Yesterday',
+            historyPrevious7Days: 'Previous 7 Days',
+            historyPrevious30Days: 'Previous 30 Days',
+            duplicateChat: 'Duplicate',
+            shareChat: 'Copy share text',
+            exportChatTxt: 'Export TXT',
+            exportChatJson: 'Export JSON',
             recentChats: 'Recent chats',
+            newGroup: 'New Group',
+            renameGroup: 'Rename',
+            deleteGroup: 'Delete group',
+            deleteGroupConfirm: 'Delete this group?',
         })[key] || key,
 }));
 
@@ -30,6 +46,7 @@ describe('SidebarController', () => {
         localStorage.clear();
         document.body.innerHTML = `
             <button id="sidebar-search-toggle"></button>
+            <button id="new-group-sidebar-btn"></button>
             <div class="search-container" hidden>
                 <input id="history-search">
                 <button id="history-search-clear"></button>
@@ -372,6 +389,113 @@ describe('SidebarController', () => {
         expect(listEl.querySelector('.history-item-menu')).toBeNull();
     });
 
+    it('renames, pins, duplicates, and exports sessions from the history item menu', () => {
+        const listEl = document.getElementById('history-list');
+        const onRename = vi.fn();
+        const onTogglePin = vi.fn();
+        const onDuplicate = vi.fn();
+        const onShare = vi.fn();
+        const onExport = vi.fn();
+        const controller = new SidebarController(
+            {
+                historyListEl: listEl,
+                sidebar: null,
+                sidebarOverlay: null,
+                historyToggleBtn: null,
+                closeSidebarBtn: null,
+            },
+            {}
+        );
+        const callbacks = {
+            onSwitch: vi.fn(),
+            onDelete: vi.fn(),
+            onRename,
+            onTogglePin,
+            onDuplicate,
+            onShare,
+            onExport,
+        };
+
+        controller.renderList(
+            [{ id: 'active', title: 'A compact history row', messages: [] }],
+            'active',
+            callbacks,
+            {}
+        );
+
+        listEl.querySelector('.history-menu-trigger').click();
+        expect(
+            [...listEl.querySelectorAll('.history-menu-item span')].map((item) => item.textContent)
+        ).toEqual([
+            'Rename',
+            'Pin',
+            'Duplicate',
+            'Copy share text',
+            'Export TXT',
+            'Export JSON',
+            'Delete',
+        ]);
+
+        listEl.querySelector('.history-menu-item').click();
+        const input = listEl.querySelector('.history-session-edit-input');
+        input.value = 'Research';
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+        expect(onRename).toHaveBeenCalledWith('active', 'Research');
+
+        controller.renderList(
+            [{ id: 'active', title: 'Research', isPinned: true, messages: [] }],
+            'active',
+            callbacks,
+            {}
+        );
+        expect(listEl.querySelector('.history-pin-badge')).not.toBeNull();
+        listEl.querySelector('.history-menu-trigger').click();
+        expect(listEl.querySelectorAll('.history-menu-item span')[1].textContent).toBe('Unpin');
+        listEl.querySelectorAll('.history-menu-item')[1].click();
+        expect(onTogglePin).toHaveBeenCalledWith('active');
+
+        controller.renderList(
+            [{ id: 'active', title: 'Research', messages: [] }],
+            'active',
+            callbacks,
+            {}
+        );
+        listEl.querySelector('.history-menu-trigger').click();
+        listEl.querySelectorAll('.history-menu-item')[2].click();
+        expect(onDuplicate).toHaveBeenCalledWith('active');
+
+        controller.renderList(
+            [{ id: 'active', title: 'Research', messages: [] }],
+            'active',
+            callbacks,
+            {}
+        );
+        listEl.querySelector('.history-menu-trigger').click();
+        listEl.querySelectorAll('.history-menu-item')[3].click();
+        expect(onShare).toHaveBeenCalledWith('active');
+
+        controller.renderList(
+            [{ id: 'active', title: 'Research', messages: [] }],
+            'active',
+            callbacks,
+            {}
+        );
+        listEl.querySelector('.history-menu-trigger').click();
+        listEl.querySelectorAll('.history-menu-item')[4].click();
+        expect(onExport).toHaveBeenCalledWith('active', 'txt');
+
+        controller.renderList(
+            [{ id: 'active', title: 'Research', messages: [] }],
+            'active',
+            callbacks,
+            {}
+        );
+        listEl.querySelector('.history-menu-trigger').click();
+        listEl.querySelectorAll('.history-menu-item')[5].click();
+        expect(onExport).toHaveBeenCalledWith('active', 'json');
+    });
+
     it('opens a history item menu from the row context menu', () => {
         const listEl = document.getElementById('history-list');
         const controller = new SidebarController(
@@ -402,6 +526,243 @@ describe('SidebarController', () => {
         ).toBe('true');
     });
 
+    it('renders groups above ungrouped conversations', () => {
+        const listEl = document.getElementById('history-list');
+        const controller = new SidebarController(
+            {
+                historyListEl: listEl,
+                sidebar: null,
+                sidebarOverlay: null,
+                historyToggleBtn: null,
+                closeSidebarBtn: null,
+            },
+            {}
+        );
+
+        controller.renderList(
+            [
+                { id: 'ungrouped', title: 'Loose chat', timestamp: 20, messages: [] },
+                {
+                    id: 'grouped',
+                    title: 'Work chat',
+                    timestamp: 10,
+                    groupId: 'group-1',
+                    messages: [],
+                },
+            ],
+            [{ id: 'group-1', title: 'Work', timestamp: 30, isExpanded: true }],
+            null,
+            { onSwitch: vi.fn(), onDelete: vi.fn() },
+            {}
+        );
+
+        const group = listEl.querySelector('.history-group');
+        expect(group.querySelector('.history-group-title').textContent).toBe('Work');
+        expect(group.querySelector('.history-item .history-title').textContent).toBe('Work chat');
+        expect(
+            listEl.querySelector('.history-ungrouped-dropzone .history-item .history-title')
+                .textContent
+        ).toBe('Loose chat');
+    });
+
+    it('renders ungrouped conversations in AMC-style pinned and time sections', () => {
+        const listEl = document.getElementById('history-list');
+        const controller = new SidebarController(
+            {
+                historyListEl: listEl,
+                sidebar: null,
+                sidebarOverlay: null,
+                historyToggleBtn: null,
+                closeSidebarBtn: null,
+            },
+            {}
+        );
+        const timestampDaysAgo = (daysAgo) => {
+            const date = new Date();
+            date.setHours(12, 0, 0, 0);
+            date.setDate(date.getDate() - daysAgo);
+            return date.getTime();
+        };
+        const olderTimestamp = timestampDaysAgo(80);
+        const olderMonthLabel = new Intl.DateTimeFormat('en-US', {
+            year: 'numeric',
+            month: 'long',
+        }).format(new Date(olderTimestamp));
+
+        controller.renderList(
+            [
+                {
+                    id: 'pinned',
+                    title: 'Pinned chat',
+                    timestamp: timestampDaysAgo(3),
+                    isPinned: true,
+                    messages: [],
+                },
+                { id: 'today', title: 'Today chat', timestamp: timestampDaysAgo(0), messages: [] },
+                {
+                    id: 'yesterday',
+                    title: 'Yesterday chat',
+                    timestamp: timestampDaysAgo(1),
+                    messages: [],
+                },
+                {
+                    id: 'week',
+                    title: 'Week chat',
+                    timestamp: timestampDaysAgo(2),
+                    messages: [],
+                },
+                {
+                    id: 'month',
+                    title: 'Month chat',
+                    timestamp: timestampDaysAgo(20),
+                    messages: [],
+                },
+                {
+                    id: 'older',
+                    title: 'Older chat',
+                    timestamp: olderTimestamp,
+                    messages: [],
+                },
+            ],
+            null,
+            { onSwitch: vi.fn(), onDelete: vi.fn() },
+            {}
+        );
+
+        const sections = [...listEl.querySelectorAll('.history-session-section')];
+        expect(
+            sections.map(
+                (section) => section.querySelector('.history-session-section-title').textContent
+            )
+        ).toEqual([
+            'Pinned',
+            'Today',
+            'Yesterday',
+            'Previous 7 Days',
+            'Previous 30 Days',
+            olderMonthLabel,
+        ]);
+        expect(
+            sections.map((section) => section.querySelector('.history-title').textContent)
+        ).toEqual([
+            'Pinned chat',
+            'Today chat',
+            'Yesterday chat',
+            'Week chat',
+            'Month chat',
+            'Older chat',
+        ]);
+    });
+
+    it('toggles a group from its summary row', () => {
+        const listEl = document.getElementById('history-list');
+        const onToggleGroupExpansion = vi.fn();
+        const controller = new SidebarController(
+            {
+                historyListEl: listEl,
+                sidebar: null,
+                sidebarOverlay: null,
+                historyToggleBtn: null,
+                closeSidebarBtn: null,
+            },
+            {}
+        );
+
+        controller.renderList(
+            [],
+            [{ id: 'group-1', title: 'Work', timestamp: 30, isExpanded: true }],
+            null,
+            { onToggleGroupExpansion },
+            {}
+        );
+
+        listEl.querySelector('.history-group-summary').click();
+
+        expect(onToggleGroupExpansion).toHaveBeenCalledWith('group-1');
+    });
+
+    it('renames and deletes groups from the group menu', () => {
+        const listEl = document.getElementById('history-list');
+        const onRenameGroup = vi.fn();
+        const onDeleteGroup = vi.fn();
+        window.confirm = vi.fn(() => true);
+        const controller = new SidebarController(
+            {
+                historyListEl: listEl,
+                sidebar: null,
+                sidebarOverlay: null,
+                historyToggleBtn: null,
+                closeSidebarBtn: null,
+            },
+            {}
+        );
+
+        controller.renderList(
+            [],
+            [{ id: 'group-1', title: 'Work', timestamp: 30, isExpanded: true }],
+            null,
+            { onRenameGroup, onDeleteGroup },
+            {}
+        );
+
+        listEl.querySelector('.history-group-menu-trigger').click();
+        listEl.querySelector('.history-group-menu .history-menu-item').click();
+
+        const input = listEl.querySelector('.history-group-edit-input');
+        input.value = 'Research';
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+
+        expect(onRenameGroup).toHaveBeenCalledWith('group-1', 'Research');
+
+        controller.renderList(
+            [],
+            [{ id: 'group-1', title: 'Research', timestamp: 30, isExpanded: true }],
+            null,
+            { onRenameGroup, onDeleteGroup },
+            {}
+        );
+        listEl.querySelector('.history-group-menu-trigger').click();
+        listEl.querySelector('.history-group-menu .history-menu-delete').click();
+
+        expect(window.confirm).toHaveBeenCalledWith('Delete this group?');
+        expect(onDeleteGroup).toHaveBeenCalledWith('group-1');
+    });
+
+    it('moves sessions into a group through drag and drop', () => {
+        const listEl = document.getElementById('history-list');
+        const onMoveSessionToGroup = vi.fn();
+        const controller = new SidebarController(
+            {
+                historyListEl: listEl,
+                sidebar: null,
+                sidebarOverlay: null,
+                historyToggleBtn: null,
+                closeSidebarBtn: null,
+            },
+            {}
+        );
+
+        controller.renderList(
+            [{ id: 'session-1', title: 'Loose chat', timestamp: 20, messages: [] }],
+            [{ id: 'group-1', title: 'Work', timestamp: 30, isExpanded: true }],
+            null,
+            { onMoveSessionToGroup },
+            {}
+        );
+
+        const dropEvent = new Event('drop', { bubbles: true, cancelable: true });
+        Object.defineProperty(dropEvent, 'dataTransfer', {
+            value: {
+                getData: (key) => (key === 'sessionId' ? 'session-1' : ''),
+            },
+        });
+
+        listEl.querySelector('.history-group').dispatchEvent(dropEvent);
+
+        expect(onMoveSessionToGroup).toHaveBeenCalledWith('session-1', 'group-1');
+    });
+
     it('opens a collapsed recent chats popover and switches sessions from it', () => {
         document.body.classList.add('layout-wide', 'sidebar-collapsed');
         const sidebar = document.createElement('div');
@@ -430,10 +791,25 @@ describe('SidebarController', () => {
             {}
         );
 
-        document.getElementById('collapsed-recent-chats-btn').click();
+        const recentButton = document.getElementById('collapsed-recent-chats-btn');
+        recentButton.getBoundingClientRect = () => ({
+            left: 6,
+            right: 46,
+            top: 134,
+            bottom: 174,
+            width: 40,
+            height: 40,
+            x: 6,
+            y: 134,
+            toJSON: () => {},
+        });
+        recentButton.click();
 
         const popover = document.getElementById('collapsed-recent-popover');
         expect(popover.hidden).toBe(false);
+        expect(popover.parentElement).toBe(document.body);
+        expect(popover.style.position).toBe('fixed');
+        expect(popover.style.left).toBe('46px');
         const items = [...popover.querySelectorAll('.collapsed-recent-item')];
         expect(items.map((item) => item.textContent.trim())).toEqual(['Newer chat', 'Older chat']);
 

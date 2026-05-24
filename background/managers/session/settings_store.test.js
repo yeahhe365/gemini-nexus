@@ -47,4 +47,25 @@ describe('getConnectionSettings', () => {
         expect(settings.apiKey).toBe('key-a');
         expect(chrome.storage.local.set).toHaveBeenCalledWith({ geminiApiKeyPointer: 1 });
     });
+
+    it('restores Gemini Web thinking level with a high default', async () => {
+        storedSettings = {
+            geminiProvider: 'web',
+            geminiWebThinkingLevel: 'minimal',
+        };
+
+        await expect(getConnectionSettings()).resolves.toEqual(
+            expect.objectContaining({
+                provider: 'web',
+                webThinkingLevel: 'minimal',
+            })
+        );
+
+        storedSettings = { geminiProvider: 'web' };
+        await expect(getConnectionSettings()).resolves.toEqual(
+            expect.objectContaining({
+                webThinkingLevel: 'high',
+            })
+        );
+    });
 });

@@ -33,6 +33,7 @@ export class StateManager {
         chrome.storage.local.get(
             [
                 'geminiSessions',
+                'geminiGroups',
                 'pendingSessionId',
                 'pendingMode',
                 'geminiShortcuts',

@@ -15,6 +15,22 @@ export function configureMarkdown() {
             .replace(/'/g, '&#039;');
     };
 
+    const normalizeCodeLanguage = (language) => {
+        return String(language || '')
+            .trim()
+            .split(/\s+/)[0]
+            .toLowerCase()
+            .replace(/[^a-z0-9_+#.-]+/g, '')
+            .slice(0, 48);
+    };
+
+    const toClassToken = (language) => {
+        return String(language || 'plaintext')
+            .replace(/[^a-z0-9_-]+/gi, '-')
+            .replace(/^-+|-+$/g, '')
+            .slice(0, 64);
+    };
+
     renderer.code = function (codeOrToken, language) {
         let code = codeOrToken;
         let lang = language;
@@ -29,13 +45,18 @@ export function configureMarkdown() {
             return '';
         }
 
-        const validLang =
-            lang && typeof hljs !== 'undefined' && hljs.getLanguage(lang) ? lang : 'plaintext';
+        const codeLang = normalizeCodeLanguage(lang);
+        const displayLang = codeLang || 'plaintext';
+        const highlightLang =
+            codeLang && typeof hljs !== 'undefined' && hljs.getLanguage(codeLang)
+                ? codeLang
+                : 'plaintext';
+        const codeLangClass = toClassToken(displayLang);
         let highlighted;
 
-        if (typeof hljs !== 'undefined' && validLang !== 'plaintext') {
+        if (typeof hljs !== 'undefined' && highlightLang !== 'plaintext') {
             try {
-                highlighted = hljs.highlight(code, { language: validLang }).value;
+                highlighted = hljs.highlight(code, { language: highlightLang }).value;
             } catch {
                 // Fallback to manual escape if highlight fails
                 highlighted = escapeHtml(code);
@@ -49,15 +70,15 @@ export function configureMarkdown() {
         const copyCodeLabel = t('copyCode');
 
         return `
-<div class="code-block-wrapper">
+<div class="code-block-wrapper" data-code-lang="${escapeHtml(displayLang)}">
     <div class="code-header">
-        <span class="code-lang">${validLang}</span>
+        <span class="code-lang">${escapeHtml(displayLang)}</span>
         <button class="copy-code-btn" aria-label="${copyCodeLabel}">
             ${TemplateIcons.COPY}
             <span>${copyLabel}</span>
         </button>
     </div>
-    <pre><code class="hljs language-${validLang}">${highlighted}</code></pre>
+    <pre><code class="hljs language-${codeLangClass}">${highlighted}</code></pre>
 </div>`;
     };
 

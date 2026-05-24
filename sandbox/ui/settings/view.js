@@ -30,6 +30,10 @@ export class SettingsView {
 
         this.about = new AboutSection({
             onDownloadLogs: () => this.fire('onDownloadLogs'),
+            onExportHistory: () => this.fire('onExportHistory'),
+            onImportHistory: (payload) => this.fire('onImportHistory', payload),
+            onExportSettings: () => this.fire('onExportSettings'),
+            onImportSettings: (payload) => this.fire('onImportSettings', payload),
         });
 
         this.queryElements();

@@ -6,7 +6,18 @@ import {
     getSupportedWebModelValues,
     getWebModelHeaderConfig,
 } from '../../shared/models/web_models.js';
+import {
+    DEFAULT_WEB_THINKING_LEVEL,
+    normalizeWebThinkingLevelForModel,
+} from '../../shared/models/web_thinking.js';
 import { debugLog } from '../../shared/logging/debug.js';
+
+const WEB_THINKING_INSTRUCTIONS = {
+    minimal:
+        'Gemini Nexus thinking mode: Minimal. Prioritize the fastest direct answer; keep internal reasoning to the minimum needed and do not mention this mode.',
+    low: 'Gemini Nexus thinking mode: Low. Use concise reasoning, favor speed, and do not mention this mode.',
+    medium: 'Gemini Nexus thinking mode: Medium. Balance reasoning depth with response speed and do not mention this mode.',
+};
 
 async function handleFileUploads(files, signal, uploadContext) {
     if (!files || files.length === 0) return [];
@@ -34,6 +45,16 @@ function constructPayload(prompt, fileList, contextIds) {
 
     // The API expects: f.req = JSON.stringify([null, JSON.stringify(requestPayload)])
     return JSON.stringify([null, JSON.stringify(requestPayload)]);
+}
+
+export function applyWebThinkingInstruction(prompt, model, thinkingLevel) {
+    const normalizedLevel = normalizeWebThinkingLevelForModel(model, thinkingLevel);
+    if (normalizedLevel === DEFAULT_WEB_THINKING_LEVEL) return String(prompt || '');
+
+    const instruction = WEB_THINKING_INSTRUCTIONS[normalizedLevel];
+    if (!instruction) return String(prompt || '');
+
+    return [instruction, '', String(prompt || '')].join('\n');
 }
 
 function stripNativeContextIds(context = {}) {
@@ -114,7 +135,15 @@ async function fetchStream(endpoint, atValue, fReq, headers, signal) {
 /**
  * Sends a message using the Reverse Engineered Web Client.
  */
-export async function sendWebMessage(prompt, context, model, files, signal, onUpdate) {
+export async function sendWebMessage(
+    prompt,
+    context,
+    model,
+    files,
+    signal,
+    onUpdate,
+    options = {}
+) {
     debugLog(`[Gemini Web] Requesting model: ${model}`);
     const requestId = generateUUID();
     const modelHeader = buildModelHeader(model, requestId);
@@ -141,7 +170,8 @@ export async function sendWebMessage(prompt, context, model, files, signal, onUp
 
     // Current Gemini Web rejects the legacy three-id continuation payload without
     // the extra UI-only context token, so Web continuity is handled by the caller.
-    const fReq = constructPayload(prompt, fileList, ['', '', '']);
+    const effectivePrompt = applyWebThinkingInstruction(prompt, model, options.thinkingLevel);
+    const fReq = constructPayload(effectivePrompt, fileList, ['', '', '']);
 
     const queryParams = new URLSearchParams({
         bl: context.blValue,
@@ -232,6 +262,7 @@ export async function sendWebMessage(prompt, context, model, files, signal, onUp
         text: finalResult.text,
         thoughts: finalResult.thoughts,
         images: finalResult.images || [],
+        hasGeneratedImagePlaceholder: finalResult.hasGeneratedImagePlaceholder === true,
         newContext: stripNativeContextIds(context),
     };
 }

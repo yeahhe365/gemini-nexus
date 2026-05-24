@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { sendWebMessage } from './web.js';
+import { applyWebThinkingInstruction, sendWebMessage } from './web.js';
 
 function makeStream(text) {
     const encoder = new TextEncoder();
@@ -29,6 +29,18 @@ function buildGeminiLine(text = 'PROJECT_OK') {
 }
 
 describe('sendWebMessage', () => {
+    it('applies Gemini Web thinking instructions only for non-high modes', () => {
+        expect(applyWebThinkingInstruction('Solve it.', '8c46e95b1a07cecc', 'minimal')).toContain(
+            'Gemini Nexus thinking mode: Minimal'
+        );
+        expect(applyWebThinkingInstruction('Solve it.', '8c46e95b1a07cecc', 'high')).toBe(
+            'Solve it.'
+        );
+        expect(applyWebThinkingInstruction('Solve it.', 'e6fa609c3fa255c0', 'minimal')).toContain(
+            'Gemini Nexus thinking mode: Low'
+        );
+    });
+
     it('uses current Gemini web endpoint query and request headers while preserving stream parsing', async () => {
         global.fetch = vi.fn().mockResolvedValue({
             ok: true,
@@ -71,6 +83,34 @@ describe('sendWebMessage', () => {
         const body = init.body;
         expect(body.get('at')).toBe('at-token');
         expect(body.get('f.req')).toContain('只回复 PROJECT_OK');
+    });
+
+    it('sends the selected Gemini Web thinking mode inside the request payload', async () => {
+        global.fetch = vi.fn().mockResolvedValue({
+            ok: true,
+            body: makeStream(buildGeminiLine()),
+        });
+
+        await sendWebMessage(
+            '只回复 PROJECT_OK',
+            {
+                atValue: 'at-token',
+                blValue: 'boq_assistant-bard-web-server_20260511.16_p5',
+                fSid: '3956664217185504700',
+                locale: 'zh-CN',
+                authUser: '0',
+            },
+            '8c46e95b1a07cecc',
+            [],
+            undefined,
+            undefined,
+            { thinkingLevel: 'minimal' }
+        );
+
+        const [, init] = global.fetch.mock.calls[0];
+        const fReq = init.body.get('f.req');
+        expect(fReq).toContain('Gemini Nexus thinking mode: Minimal');
+        expect(fReq).toContain('只回复 PROJECT_OK');
     });
 
     it('does not send, persist, or mutate stale native three-id conversation context', async () => {

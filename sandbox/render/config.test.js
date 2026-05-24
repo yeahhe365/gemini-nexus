@@ -58,4 +58,19 @@ describe('configureMarkdown', () => {
         expect(html).toContain('{"ok":true}');
         setLanguagePreference('en');
     });
+
+    it('preserves previewable fence languages even when syntax highlighting falls back', () => {
+        globalThis.marked = createMarkedStub();
+        globalThis.hljs = {
+            getLanguage: () => false,
+        };
+        configureMarkdown();
+
+        const html = transformMarkdown('```mermaid\ngraph TD\n  A --> B\n```');
+
+        expect(html).toContain('data-code-lang="mermaid"');
+        expect(html).toContain('<span class="code-lang">mermaid</span>');
+        expect(html).toContain('language-mermaid');
+        expect(html).toContain('A --&gt; B');
+    });
 });

@@ -18,6 +18,8 @@ vi.mock('../../shared/dom/crop_image.js', () => ({
 }));
 
 vi.mock('../../shared/messaging/index.js', () => ({
+    downloadTextFile: vi.fn(),
+    saveGroupsToStorage: vi.fn(),
     saveSessionsToStorage: vi.fn(),
     sendToBackground: vi.fn(),
 }));
@@ -51,6 +53,7 @@ function createUi() {
         },
         toggleTabSwitcher: vi.fn(),
         updateBrowserControlState: vi.fn(),
+        updateWebThinkingToggle: vi.fn(),
         setBrowserControlCallbacks: vi.fn(),
         updateModelList: vi.fn(),
         updateStatus: vi.fn(),
@@ -172,6 +175,31 @@ describe('AppController session restore behavior', () => {
         expect(sessionManager.currentSessionId).toBe('real');
     });
 
+    it('restores saved groups and rerenders history after sessions are loaded', async () => {
+        const { app, sessionManager, ui } = createAppHarness();
+
+        await app.handleIncomingMessage(restoreEvent([realSession()]));
+        ui.renderHistoryList.mockClear();
+
+        await app.handleIncomingMessage({
+            data: {
+                action: 'RESTORE_GROUPS',
+                payload: [{ id: 'group-1', title: 'Work', timestamp: 1, isExpanded: false }],
+            },
+        });
+
+        expect(sessionManager.groups).toEqual([
+            { id: 'group-1', title: 'Work', timestamp: 1, isExpanded: false },
+        ]);
+        expect(ui.renderHistoryList).toHaveBeenCalledWith(
+            [expect.objectContaining({ id: 'real' })],
+            [expect.objectContaining({ id: 'group-1' })],
+            sessionManager.currentSessionId,
+            expect.objectContaining({ onAddGroup: expect.any(Function) }),
+            { isGenerating: false, generatingSessionId: null }
+        );
+    });
+
     it('rerenders the current chat when storage updates add an AI reply', async () => {
         const { app, sessionManager, ui } = createAppHarness();
         const markRendered = vi.spyOn(app.messageHandler, 'markSessionRenderedFromStorage');
@@ -217,6 +245,48 @@ describe('AppController session restore behavior', () => {
             },
             '*'
         );
+    });
+
+    it('toggles Gemini Web thinking between high and the model fast level', () => {
+        const { app, ui } = createAppHarness();
+        ui.modelSelect.value = '8c46e95b1a07cecc';
+        ui.settings.connectionData = { provider: 'web', webThinkingLevel: 'high' };
+
+        app.handleWebThinkingToggle();
+
+        expect(ui.settings.connectionData.webThinkingLevel).toBe('minimal');
+        expect(ui.updateWebThinkingToggle).toHaveBeenCalledWith(ui.settings.connectionData);
+        expect(window.parent.postMessage).toHaveBeenCalledWith(
+            {
+                action: 'SAVE_WEB_THINKING_LEVEL',
+                payload: 'minimal',
+            },
+            '*'
+        );
+
+        app.handleWebThinkingToggle();
+
+        expect(ui.settings.connectionData.webThinkingLevel).toBe('high');
+        expect(window.parent.postMessage).toHaveBeenCalledWith(
+            {
+                action: 'SAVE_WEB_THINKING_LEVEL',
+                payload: 'high',
+            },
+            '*'
+        );
+    });
+
+    it('does not toggle Web thinking for non-Web providers', () => {
+        const { app, ui } = createAppHarness();
+        ui.settings.connectionData = { provider: 'official', webThinkingLevel: 'high' };
+
+        app.handleWebThinkingToggle();
+
+        expect(window.parent.postMessage).not.toHaveBeenCalledWith(
+            expect.objectContaining({ action: 'SAVE_WEB_THINKING_LEVEL' }),
+            '*'
+        );
+        expect(ui.updateWebThinkingToggle).toHaveBeenCalledWith(ui.settings.connectionData);
     });
 
     it('forwards locked tab updates to the browser control bar state', async () => {

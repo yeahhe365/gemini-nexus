@@ -18,6 +18,10 @@ import {
     requestContextSettingsFromStorage,
     saveConnectionSettingsToStorage,
     requestConnectionSettingsFromStorage,
+    exportHistoryData,
+    importHistoryData,
+    exportSettingsData,
+    importSettingsData,
     sendToBackground,
 } from '../../../shared/messaging/index.js';
 import { formatT, setLanguagePreference, getLanguagePreference, t } from '../../core/i18n.js';
@@ -37,6 +41,7 @@ import {
     DEFAULT_THINKING_LEVEL,
 } from '../../../shared/config/constants.js';
 import { createDefaultMcpServer } from '../../../shared/settings/connection.js';
+import { DEFAULT_WEB_THINKING_LEVEL } from '../../../shared/models/web_thinking.js';
 import { normalizeCustomSelectionTools } from '../../../shared/settings/selection_tools.js';
 import {
     buildConnectionSettingsForSave,
@@ -67,6 +72,7 @@ export class SettingsController {
         this.connectionData = {
             provider: DEFAULT_PROVIDER,
             useOfficialApi: false,
+            webThinkingLevel: DEFAULT_WEB_THINKING_LEVEL,
             officialBaseUrl: DEFAULT_OFFICIAL_BASE_URL,
             apiKey: '',
             officialModel: DEFAULT_OFFICIAL_MODELS,
@@ -111,12 +117,20 @@ export class SettingsController {
                 saveSidePanelScopeToStorage(this.sidePanelScope);
             },
             onDownloadLogs: () => this.downloadLogs(),
+            onExportHistory: () => this.exportHistory(),
+            onImportHistory: (payload) => this.importHistory(payload),
+            onExportSettings: () => this.exportSettings(),
+            onImportSettings: (payload) => this.importSettings(payload),
         });
 
         window.addEventListener('message', (messageEvent) => {
             const { action, payload } = messageEvent.data || {};
             if (action === 'BACKGROUND_MESSAGE' && payload?.logs) {
                 this.saveLogFile(payload.logs);
+                return;
+            }
+            if (action === 'DATA_IMPORT_RESULT') {
+                this.handleDataImportResult(payload);
             }
         });
     }
@@ -207,6 +221,39 @@ export class SettingsController {
 
     downloadLogs() {
         sendToBackground({ action: 'GET_LOGS' });
+    }
+
+    exportHistory() {
+        exportHistoryData();
+    }
+
+    importHistory(payload) {
+        importHistoryData(payload);
+    }
+
+    exportSettings() {
+        exportSettingsData();
+    }
+
+    importSettings(payload) {
+        importSettingsData(payload);
+    }
+
+    handleDataImportResult(result) {
+        if (!result || result.ok !== true) {
+            const error = result?.error || t('dataImportFailed');
+            alert(formatT('dataImportError', { error }));
+            return;
+        }
+
+        if (result.kind === 'history') {
+            alert(t('historyImportSuccess'));
+            return;
+        }
+
+        if (result.kind === 'settings') {
+            alert(t('settingsImportSuccess'));
+        }
     }
 
     saveLogFile(logs) {

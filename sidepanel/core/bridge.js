@@ -8,6 +8,10 @@ import {
     createConnectionStorageUpdate,
 } from '../../shared/settings/connection.js';
 import {
+    buildHistoryImportStorageUpdate,
+    buildSettingsImportStorageUpdate,
+} from '../../shared/data_management/index.js';
+import {
     mergeSessionSaveWithCurrent,
     normalizeDeletedSessionIds,
     normalizeSessionSavePayload,
@@ -187,6 +191,44 @@ export class MessageBridge {
         for (const [key, value] of Object.entries(storageUpdate)) {
             this.state.save(key, value);
         }
+    }
+
+    importHistoryData(payload) {
+        chrome.storage.local.get(
+            ['geminiSessions', 'geminiGroups', 'geminiDeletedSessionIds'],
+            (result) => {
+                try {
+                    const storageUpdate = buildHistoryImportStorageUpdate(payload, result || {});
+                    chrome.storage.local.set(storageUpdate, () => {
+                        this.postDataImportResult('history', true);
+                    });
+                } catch (error) {
+                    this.postDataImportResult('history', false, error);
+                }
+            }
+        );
+    }
+
+    importSettingsData(payload) {
+        try {
+            const storageUpdate = buildSettingsImportStorageUpdate(payload);
+            chrome.storage.local.set(storageUpdate, () => {
+                this.postDataImportResult('settings', true);
+            });
+        } catch (error) {
+            this.postDataImportResult('settings', false, error);
+        }
+    }
+
+    postDataImportResult(kind, ok, error = null) {
+        this.frame.postMessage({
+            action: 'DATA_IMPORT_RESULT',
+            payload: {
+                kind,
+                ok,
+                error: error?.message || null,
+            },
+        });
     }
 
     postBackgroundMessage(payload) {

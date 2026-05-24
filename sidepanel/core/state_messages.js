@@ -7,6 +7,7 @@ import {
     CONNECTION_STORAGE_KEYS,
     createConnectionSettingsPayload,
 } from '../../shared/settings/connection.js';
+import { CUSTOM_SELECTION_TOOLS_STORAGE_KEY } from '../../shared/settings/selection_tools.js';
 
 export const CONNECTION_STORAGE_KEY_SET = new Set(CONNECTION_STORAGE_KEYS);
 
@@ -52,6 +53,10 @@ export function createInitialRestoreMessages(localStorageData, { theme, language
         ],
         afterTabContext: [
             {
+                action: 'RESTORE_GROUPS',
+                payload: localStorageData.geminiGroups || [],
+            },
+            {
                 action: 'RESTORE_SESSIONS',
                 payload: localStorageData.geminiSessions || [],
             },
@@ -96,6 +101,20 @@ export function createLocalStorageRestoreMessages(localStorageData, changedKeys)
         messages.push({
             action: 'RESTORE_SHORTCUTS',
             payload: localStorageData.geminiShortcuts || null,
+        });
+    }
+
+    if (hasChanged('geminiGroups')) {
+        messages.push({
+            action: 'RESTORE_GROUPS',
+            payload: localStorageData.geminiGroups || [],
+        });
+    }
+
+    if (hasChanged('geminiSessions')) {
+        messages.push({
+            action: 'RESTORE_SESSIONS',
+            payload: localStorageData.geminiSessions || [],
         });
     }
 
@@ -152,6 +171,13 @@ export function createLocalStorageRestoreMessages(localStorageData, changedKeys)
         messages.push({
             action: 'RESTORE_TEXT_SELECTION_BLACKLIST',
             payload: localStorageData.geminiTextSelectionBlacklist || '',
+        });
+    }
+
+    if (hasChanged(CUSTOM_SELECTION_TOOLS_STORAGE_KEY)) {
+        messages.push({
+            action: 'RESTORE_CUSTOM_SELECTION_TOOLS',
+            payload: localStorageData[CUSTOM_SELECTION_TOOLS_STORAGE_KEY] || [],
         });
     }
 

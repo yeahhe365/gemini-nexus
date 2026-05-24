@@ -383,6 +383,114 @@ describe('MessageBridge model persistence', () => {
         );
     });
 
+    it('applies group updates without truncating newer stored messages', async () => {
+        const frame = createFrame();
+        const state = createState();
+        const bridge = new MessageBridge(frame, state);
+        chrome.storage.local.get.mockImplementation((keys, callback) =>
+            callback({
+                geminiSessions: [
+                    {
+                        id: 'session-1',
+                        title: 'Current',
+                        groupId: null,
+                        messages: [
+                            { role: 'user', text: 'Hi' },
+                            { role: 'ai', text: 'Hello' },
+                        ],
+                    },
+                ],
+                geminiDeletedSessionIds: {},
+            })
+        );
+
+        bridge.handleWindowMessage({
+            source: frame.getWindow(),
+            data: {
+                action: 'SAVE_SESSIONS',
+                payload: {
+                    sessions: [
+                        {
+                            id: 'session-1',
+                            title: 'Stale',
+                            groupId: 'group-1',
+                            messages: [{ role: 'user', text: 'Hi' }],
+                        },
+                    ],
+                    mutation: { type: 'updateSessionGroups' },
+                },
+            },
+        });
+
+        await vi.waitFor(() =>
+            expect(state.save).toHaveBeenCalledWith('geminiSessions', [
+                expect.objectContaining({
+                    id: 'session-1',
+                    title: 'Current',
+                    groupId: 'group-1',
+                    messages: [
+                        { role: 'user', text: 'Hi' },
+                        { role: 'ai', text: 'Hello' },
+                    ],
+                }),
+            ])
+        );
+    });
+
+    it('applies session metadata updates without truncating newer stored messages', async () => {
+        const frame = createFrame();
+        const state = createState();
+        const bridge = new MessageBridge(frame, state);
+        chrome.storage.local.get.mockImplementation((keys, callback) =>
+            callback({
+                geminiSessions: [
+                    {
+                        id: 'session-1',
+                        title: 'Current',
+                        isPinned: false,
+                        messages: [
+                            { role: 'user', text: 'Hi' },
+                            { role: 'ai', text: 'Hello' },
+                        ],
+                    },
+                ],
+                geminiDeletedSessionIds: {},
+            })
+        );
+
+        bridge.handleWindowMessage({
+            source: frame.getWindow(),
+            data: {
+                action: 'SAVE_SESSIONS',
+                payload: {
+                    sessions: [
+                        {
+                            id: 'session-1',
+                            title: 'Pinned title',
+                            isPinned: true,
+                            messages: [{ role: 'user', text: 'Hi' }],
+                        },
+                    ],
+                    mutation: { type: 'updateSessionMetadata', sessionId: 'session-1' },
+                },
+            },
+        });
+
+        await vi.waitFor(() =>
+            expect(state.save).toHaveBeenCalledWith('geminiSessions', [
+                expect.objectContaining({
+                    id: 'session-1',
+                    title: 'Pinned title',
+                    isPinned: true,
+                    messages: [
+                        { role: 'user', text: 'Hi' },
+                        { role: 'ai', text: 'Hello' },
+                    ],
+                }),
+            ])
+        );
+    });
+
     it('applies delete-session mutations against current storage and records a tombstone', async () => {
         const frame = createFrame();
         const state = createState();
@@ -460,6 +568,56 @@ describe('MessageBridge model persistence', () => {
         });
 
         await vi.waitFor(() => expect(state.save).toHaveBeenCalledWith('geminiSessions', []));
+    });
+
+    it('imports history by merging new records and clearing matching tombstones', async () => {
+        const frame = createFrame();
+        const state = createState();
+        const bridge = new MessageBridge(frame, state);
+        chrome.storage.local.get.mockImplementation((keys, callback) =>
+            callback({
+                geminiSessions: [{ id: 'existing-session', messages: [{ role: 'user' }] }],
+                geminiGroups: [{ id: 'existing-group', title: 'Existing' }],
+                geminiDeletedSessionIds: {
+                    'new-session': 1,
+                    other: 2,
+                },
+            })
+        );
+        chrome.storage.local.set.mockImplementation((update, callback) => callback?.());
+
+        bridge.importHistoryData({
+            type: 'GeminiNexus-History',
+            history: [
+                { id: 'existing-session', title: 'Imported duplicate' },
+                { id: 'new-session', title: 'Imported' },
+            ],
+            groups: [
+                { id: 'existing-group', title: 'Imported duplicate' },
+                { id: 'new-group', title: 'Imported group' },
+            ],
+        });
+
+        await vi.waitFor(() =>
+            expect(chrome.storage.local.set).toHaveBeenCalledWith(
+                {
+                    geminiSessions: [
+                        { id: 'existing-session', messages: [{ role: 'user' }] },
+                        { id: 'new-session', title: 'Imported' },
+                    ],
+                    geminiGroups: [
+                        { id: 'existing-group', title: 'Existing' },
+                        { id: 'new-group', title: 'Imported group' },
+                    ],
+                    geminiDeletedSessionIds: { other: 2 },
+                },
+                expect.any(Function)
+            )
+        );
+        expect(frame.postMessage).toHaveBeenCalledWith({
+            action: 'DATA_IMPORT_RESULT',
+            payload: { kind: 'history', ok: true, error: null },
+        });
     });
 
     it('captures a selected display and forwards a still frame to the sandbox', async () => {
