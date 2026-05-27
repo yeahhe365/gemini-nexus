@@ -1,7 +1,7 @@
 {
     "manifest_version": 3,
     "name": "Gemini Nexus",
-    "version": "5.0.8",
+    "version": "5.0.9",
     "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA8Tkiv3U7GyFUNtXT6vE1OxnZpHwbTDeSYinDy/G4Nh1480o1VTll9MpwJhJlvze2Yb8jDTsEHdL/UkLj5wov8E9GdNT0Moegpi1hvnKZeHqQGA1AnFKmfucM+OXPWeQsRcS/FcbL/TPeXeit7mfNKE8Vfcf9CeD25JszJyp9K6guNIksmxX27sQC34BNZU1MTzi8l3jm3ORHQ3pRcb66XD2RkW8QcoklRlRzZ7z6FgMB/AJPxHczRVQV2x7BGtbgudWF7EYxjeL6edtG7U+9GtOmentqGaRNkitFsd8SP6ZYoI+lxssDqp2PtyYjj6Ki6+/t9q5Q0WOR6ib0w2VVCwIDAQAB",
     "permissions": [
         "sidePanel",
