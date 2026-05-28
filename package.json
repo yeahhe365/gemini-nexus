@@ -29,7 +29,7 @@
     "dependencies": {
         "@viz-js/viz": "^3.25.0",
         "highlight.js": "^11.11.1",
-        "katex": "^0.16.45",
+        "katex": "^0.17.0",
         "marked": "^18.0.3",
         "mermaid": "^10.9.6"
     }
